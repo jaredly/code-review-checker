@@ -25,6 +25,11 @@ Usage:
 - 'phab mine' - show your open revisions
 - 'phab rev' - show open revisions that you are reviewing
 - 'phab D33032' - show detail on diff D33032
+
+Options:
+--help  show this help
+--open  open the revisions in your browser
+--all   by default, stale diffs (no updates in >1month) are hidden. show them.
 `)
 
 var Spinner = require('cli-spinner').Spinner;
