@@ -1,6 +1,6 @@
 {
   "name": "phabrador",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "main": "./phabrador/index.js",
   "bin": {
     "phab": "./bin.js"
