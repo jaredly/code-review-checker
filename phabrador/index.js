@@ -32,6 +32,9 @@ const fetchInfo = (exec, diffs, me, onStatus) => {
     const usersToLookup = {}
     diffs.forEach(diff => {
       byId[diff.id] = byPhid[diff.phid] = {diff, feed: []}
+      if (!Array.isArray(diff.reviewers)) {
+        diff.reviewers = Object.keys(diff.reviewers)
+      }
       diff.reviewers.forEach(u => usersToLookup[u] = true)
     })
     Object.keys(comments).forEach(id => {
