@@ -26,11 +26,90 @@ let getAuth = () => {
 
 let (hostname, token) = getAuth();
 
+module Person = {
+  type t = {userName: string, realName: string, phid: string, image: string};
+  let parse = result => {
+    module F = Lets.Opt;
+    open Json.Infix;
+    let%F phid = result |> Json.get("phid") |?> Json.string;
+    let%F userName = result |> Json.get("userName") |?> Json.string;
+    let%F realName = result |> Json.get("realName") |?> Json.string;
+    let%F image = result |> Json.get("image") |?> Json.string;
+    Some({userName, realName, image, phid});
+  };
+};
+
+module Revision = {
+  type t = {
+    title: string,
+    phid: string,
+    id: int,
+    repositoryPHID: string,
+    authorPHID: string,
+    summary: string,
+    dateCreated: int,
+    dateModified: int,
+    status: string,
+    color: string,
+  };
+  let parse = result => {
+    module F = Lets.Opt;
+    open Json.Infix;
+    let%F phid = result |> Json.get("phid") |?> Json.string;
+    let%F id = result |> Json.get("id") |?> Json.number |?>> int_of_float;
+    let%F fields = result |> Json.get("fields");
+
+    let%F title = fields |> Json.get("title") |?> Json.string;
+    let%F repositoryPHID = fields |> Json.get("repositoryPHID") |?> Json.string;
+    let%F authorPHID = fields |> Json.get("authorPHID") |?> Json.string;
+    let%F summary = fields |> Json.get("summary") |?> Json.string;
+    let%F dateCreated = fields |> Json.get("dateCreated") |?> Json.number |?>> int_of_float;
+    let%F dateModified = fields |> Json.get("dateModified") |?> Json.number |?>> int_of_float;
+    let%F statusObj = fields |> Json.get("status");
+    let%F status = statusObj |> Json.get("value") |?> Json.string;
+    let%F color = statusObj |> Json.get("color.ansi") |?> Json.string;
+
+    Some({title, phid, id, repositoryPHID, authorPHID, summary, dateModified, dateCreated, status, color});
+  };
+};
+
+let kwargs = items => String.concat("&", items->Belt.List.map(((k, v)) => k ++ "=" ++ v));
+
+let call = (endp, args, cb) => fetch(~url=hostname ++ "user.whoami?" ++ kwargs([("api.token", token), ...args]), ((body, status)) => {
+  let json = Json.parse(body);
+  module F = Lets.Opt.Force;
+  let%F result = json |> Json.get("result");
+  cb(result);
+});
+
+let whoAmI = cb => {
+  call("user.whoami", [], result => {
+    module F = Lets.Opt.Force;
+    let%F person = Person.parse(result);
+    cb(person)
+  });
+};
+
+let getRevisions = (me, cb) => {
+  call("differential.revision.search", [
+    ("queryKey", "active"),
+    ("constraints", Json.stringify(Json.Object([
+      ("responsiblePHIDs", Json.Array([Json.String(me.Person.phid)]))
+    ])))
+  ], result => {
+    module F = Lets.Opt.Force;
+    open Json.Infix;
+    let%F data = result |> Json.get("data") |?> Json.array;
+    cb(data->Belt.List.keepMap(Revision.parse))
+  })
+};
+
 let main = (~assetsDir as _, hooks) => {
   let%hook () = Fluid.Hooks.useEffect(() => {
-    fetch(~url=hostname ++ "user.whoami?api.token=" ++ token, ((body, status)) => {
-      print_endline("Success! " ++ string_of_int(status));
-      print_endline(body)
+    whoAmI(person => {
+      getRevisions(person, revisions => {
+        print_endline("ok");
+      });
     });
     () => ()
   }, ());

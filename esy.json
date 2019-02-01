@@ -12,11 +12,13 @@
     "ocaml": ">=4.7.0",
     "@opam/dune": "*",
     "@opam/reason": "*",
+    "let-anything-esy": "*",
     "fluid": "jaredly/fluid",
     "belt": "jaredly/belt",
     "RexJson": "jaredly/rex-json#esy"
   },
   "resolutions": {
-    "fluid": "link:../../explorations/fluid/esy.json"
+    "fluid": "link:../../explorations/fluid/esy.json",
+    "let-anything-esy": "link:../../tools/let-anything/publish-esy/package.json"
   }
 }
