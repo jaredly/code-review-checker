@@ -19,6 +19,7 @@
   },
   "resolutions": {
     "fluid": "link:../../explorations/fluid/esy.json",
+    "RexJson": "link:../../libs/rex-json/esy.json",
     "let-anything-esy": "link:../../tools/let-anything/publish-esy/package.json"
   }
 }

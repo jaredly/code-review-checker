@@ -1,5 +1,4 @@
 
-
 open FluidMac;
 
 let str = Fluid.string;
@@ -73,14 +72,21 @@ module Revision = {
   };
 };
 
-let kwargs = items => String.concat("&", items->Belt.List.map(((k, v)) => k ++ "=" ++ v));
+let kwargs = items => String.concat("&", items->Belt.List.map(((k, v)) => k ++ "=" ++ EncodeURIComponent.encode(v)));
 
-let call = (endp, args, cb) => fetch(~url=hostname ++ "user.whoami?" ++ kwargs([("api.token", token), ...args]), ((body, status)) => {
-  let json = Json.parse(body);
+let call = (endp, args, cb) => {
+  let url = hostname ++ endp ++ "?" ++ kwargs([("api.token", token), ...args]);
+  print_endline("calling " ++ url);
+  fetch(~url, ((body, status)) => {
+  /* print_endline(body); */
+  let json = try (Json.parse(body)) {
+    | Failure(f) => failwith("Unable to parse body: " ++ f)
+  };
   module F = Lets.Opt.Force;
   let%F result = json |> Json.get("result");
   cb(result);
 });
+};
 
 let whoAmI = cb => {
   call("user.whoami", [], result => {
@@ -93,9 +99,7 @@ let whoAmI = cb => {
 let getRevisions = (me, cb) => {
   call("differential.revision.search", [
     ("queryKey", "active"),
-    ("constraints", Json.stringify(Json.Object([
-      ("responsiblePHIDs", Json.Array([Json.String(me.Person.phid)]))
-    ])))
+    ("constraints[responsiblePHIDs][0]", me.Person.phid),
   ], result => {
     module F = Lets.Opt.Force;
     open Json.Infix;

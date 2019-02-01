@@ -1,5 +1,5 @@
 {
-  "checksum": "bfd656ebbdb45e69a895900d1b6c4ce4",
+  "checksum": "0a3645a8ff6e66206d0219f47291761c",
   "root": "phabrador@link:./esy.json",
   "node": {
     "phabrador@link:./esy.json": {
@@ -13,7 +13,7 @@
         "let-anything-esy@link:../../tools/let-anything/publish-esy/package.json",
         "fluid@link:../../explorations/fluid/esy.json",
         "belt@github:jaredly/belt#200d736fa08438c91d8c6dd553b97ecbd9c7ab33@d41d8cd9",
-        "RexJson@github:jaredly/rex-json#02a6fc047b62d18fd0ef04a51f70bb8072c2b2d2@d41d8cd9",
+        "RexJson@link:../../libs/rex-json/esy.json",
         "@opam/reason@opam:3.4.0@9dac40ad", "@opam/dune@opam:1.6.3@a7d7baed"
       ],
       "devDependencies": []
@@ -64,7 +64,7 @@
         "ocaml@4.7.1003@d41d8cd9",
         "flex@github:jaredly/flex#111310b55ddb38a86e3fe5bd3298b6aa03974321@d41d8cd9",
         "belt@github:jaredly/belt#200d736fa08438c91d8c6dd553b97ecbd9c7ab33@d41d8cd9",
-        "RexJson@github:jaredly/rex-json#02a6fc047b62d18fd0ef04a51f70bb8072c2b2d2@d41d8cd9",
+        "RexJson@link:../../libs/rex-json/esy.json",
         "@opam/reason@opam:3.4.0@9dac40ad",
         "@opam/ppx_tools_versioned@opam:5.2.1@95275a75",
         "@opam/ocaml-migrate-parsetree@opam:1.2.0@5b3aa0d3",
@@ -111,17 +111,14 @@
       ],
       "devDependencies": []
     },
-    "RexJson@github:jaredly/rex-json#02a6fc047b62d18fd0ef04a51f70bb8072c2b2d2@d41d8cd9": {
-      "id":
-        "RexJson@github:jaredly/rex-json#02a6fc047b62d18fd0ef04a51f70bb8072c2b2d2@d41d8cd9",
+    "RexJson@link:../../libs/rex-json/esy.json": {
+      "id": "RexJson@link:../../libs/rex-json/esy.json",
       "name": "RexJson",
-      "version":
-        "github:jaredly/rex-json#02a6fc047b62d18fd0ef04a51f70bb8072c2b2d2",
+      "version": "link:../../libs/rex-json/esy.json",
       "source": {
-        "type": "install",
-        "source": [
-          "github:jaredly/rex-json#02a6fc047b62d18fd0ef04a51f70bb8072c2b2d2"
-        ]
+        "type": "link",
+        "path": "../../libs/rex-json",
+        "manifest": "esy.json"
       },
       "overrides": [],
       "dependencies": [
