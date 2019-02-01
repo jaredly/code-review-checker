@@ -1,0 +1,18 @@
+
+(executable
+  (public_name PhabradorDev)
+  (libraries Phabrador)
+  (modules PhabradorDev)
+  (link_flags -cclib -framework -cclib Cocoa -cclib -framework -cclib Carbon -cclib -framework -cclib CoreImage)
+  (preprocess (pps belt.ppx fluid.ppx)))
+
+(executable
+  (public_name PhabradorProd)
+  (modules PhabradorProd)
+  (libraries Phabrador)
+  (link_flags -cclib -framework -cclib Cocoa -cclib -framework -cclib Carbon -cclib -framework -cclib CoreImage)
+  (preprocess (pps belt.ppx fluid.ppx)))
+
+
+
+

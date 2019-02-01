@@ -1,0 +1,22 @@
+{
+  "name": "phabrador",
+  "version": "1.0",
+  "esy": {
+    "build": "dune build -p #{self.name}"
+  },
+  "scripts": {
+    "start": "dune exec PhabradorDev",
+    "pkg": "sh -c 'cd bundler && ./bundle.sh'"
+  },
+  "dependencies": {
+    "ocaml": ">=4.7.0",
+    "@opam/dune": "*",
+    "@opam/reason": "*",
+    "fluid": "jaredly/fluid",
+    "belt": "jaredly/belt",
+    "RexJson": "jaredly/rex-json#esy"
+  },
+  "resolutions": {
+    "fluid": "link:../../explorations/fluid/esy.json"
+  }
+}
