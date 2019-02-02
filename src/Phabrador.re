@@ -20,6 +20,7 @@ module ImageCache = Fluid.Cache({
 });
 
 /* let%component imageLoader = (~src, ~layout, hooks) => {
+  print_endline("imageLoader render " ++ src);
   let data = ImageCache.fetch(src);
 
   <image src=Preloaded(data) layout />
@@ -39,36 +40,40 @@ let%component loadingImage = (~src, ~layout, hooks) => {
   </view>
 }; */
 
+let%component revision = (~rev: Data.Revision.t, ~users: Belt.Map.String.t(Person.t), hooks) => {
+  let author = users->Belt.Map.String.get(rev.authorPHID);
+  let date = ODate.Unix.From.seconds(rev.dateModified);
+  <view layout={Layout.style(~paddingVertical=8., ~paddingHorizontal=8., ())}>
+    {str(rev.Revision.title)}
+    {str(ODate.Unix.Printer.to_birthday(date))}
+    {switch author {
+      | None => str("Unknown author: " ++ rev.authorPHID)
+      | Some(person) => <view>
+      {str(person.userName)}
+      /* <loadingImage src={person.image} 
+      layout={Layout.style(~width=30., ~height=30., ())} /> */
+      <image src={
+        switch (person.loadedImage) {
+          | None => Plain(person.image)
+          | Some(i) => Preloaded(i)
+        }
+        /* Plain(person.image) */
+      } layout={Layout.style(~width=30., ~height=30., ())} />
+      </view>
+    }}
+    <button onPress={() => openUrl(Api.base ++ "/D" ++ string_of_int(rev.id))}
+      title="Open Diff"
+    />
+  </view>
+};
+
 let%component revisionList = (~revisions: list(Revision.t), ~users: Belt.Map.String.t(Person.t), ~title, hooks) => {
   <view layout={Layout.style(~alignItems=AlignStretch, ())}>
     <view backgroundColor=gray(0.9) layout={Layout.style(~paddingHorizontal=8., ~paddingVertical=4., ())}>
       {str(title)}
     </view>
     {Fluid.Native.view(
-      ~children=revisions->Belt.List.map(rev => {
-        let author = users->Belt.Map.String.get(rev.authorPHID);
-        let date = ODate.Unix.From.seconds(rev.dateModified);
-        <view layout={Layout.style(~paddingVertical=8., ~paddingHorizontal=8., ())}>
-          {str(rev.Revision.title)}
-          {str(ODate.Unix.Printer.to_birthday(date))}
-          {switch author {
-            | None => str("Unknown author: " ++ rev.authorPHID)
-            | Some(person) => <view>
-            {str(person.userName)}
-            <image src={
-              switch (person.loadedImage) {
-                | None => Plain(person.image)
-                | Some(i) => Preloaded(i)
-              }
-              /* Plain(person.image) */
-            } layout={Layout.style(~width=30., ~height=30., ())} />
-            </view>
-          }}
-          <button onPress={() => openUrl(Api.base ++ "/D" ++ string_of_int(rev.id))}
-            title="Open Diff"
-          />
-        </view>
-      }),
+      ~children=revisions->Belt.List.map(rev => <revision users rev /> ),
       ()
     )}
   </view>
