@@ -109,14 +109,19 @@ let getRevisions = (me, cb) => {
   })
 };
 
+let gray = n => {r: n, g: n, b: n, a: 1.};
+
 let revisionList = (~revisions, ~title, hooks) => {
-  <view>
-    {str(title)}
+  <view layout={Layout.style(~alignItems=AlignStretch, ())}>
+    <view backgroundColor=gray(0.8) layout={Layout.style(~paddingHorizontal=8., ~paddingVertical=4., ())}>
+      {str(title)}
+    </view>
     {Fluid.Native.view(
       ~children=revisions->Belt.List.map(rev => {
+        let date = ODate.Unix.From.seconds(rev.Revision.dateModified);
         <view layout={Layout.style(~paddingVertical=8., ~paddingHorizontal=8., ())}>
           {str(rev.Revision.title)}
-          /* {str(rev.Revision.dateModified)} */
+          {str(ODate.Unix.Printer.to_birthday(date))}
         </view>
       }),
       ()
@@ -147,9 +152,9 @@ let main = (~assetsDir, ~setTitle, hooks) => {
   }, ());
       <view layout={Layout.style(~width=500., ~height=500., ())}>
       <scrollView
-        layout={Layout.style(~flexGrow=1., ~alignSelf=AlignStretch, ~overflow=Scroll, ())}
+        layout={Layout.style(~flexGrow=1., ~alignItems=AlignStretch, ~alignSelf=AlignStretch, ~overflow=Scroll, ())}
       >
-      <view>
+      <view layout={Layout.style(~alignItems=AlignStretch, ())}>
       {
 
   switch (revisions) {
@@ -161,8 +166,7 @@ let main = (~assetsDir, ~setTitle, hooks) => {
       let readyToReview = revisions->Belt.List.keep(r => r.authorPHID != person.Person.phid && r.status == "needs-review");
       let changesRequested = revisions->Belt.List.keep(r => r.authorPHID == person.Person.phid && r.status == "needs-revision");
       let title = Printf.sprintf("✅ %d | ❌ %d | 🙏 %d", List.length(readyToLand), List.length(waiting), List.length(readyToReview));
-      <view>
-        {str("Act now")}
+      <view layout={Layout.style(~alignItems=AlignStretch, ())}>
         <RevisionList
           title="✅ Ready to land"
           revisions=readyToLand

@@ -1,5 +1,5 @@
 {
-  "checksum": "673c313b11fb220ddbfec17a2c391774",
+  "checksum": "248fe4123cc2a6fb42df8ba818c96daa",
   "root": "phabrador@link:./esy.json",
   "node": {
     "phabrador@link:./esy.json": {
@@ -15,7 +15,7 @@
         "belt@github:jaredly/belt#200d736fa08438c91d8c6dd553b97ecbd9c7ab33@d41d8cd9",
         "RexJson@link:../../libs/rex-json/esy.json",
         "@opam/reason@opam:3.4.0@9dac40ad",
-        "@opam/odate@github:jaredly/odate#132a9e794994c275c64e0b0b7c7803f9fa0b33e5@d41d8cd9",
+        "@opam/odate@link:../../fork/odate/package.json",
         "@opam/dune@opam:1.6.3@a7d7baed"
       ],
       "devDependencies": []
@@ -235,20 +235,20 @@
       ],
       "devDependencies": [ "ocaml@4.7.1003@d41d8cd9" ]
     },
-    "@opam/odate@github:jaredly/odate#132a9e794994c275c64e0b0b7c7803f9fa0b33e5@d41d8cd9": {
-      "id":
-        "@opam/odate@github:jaredly/odate#132a9e794994c275c64e0b0b7c7803f9fa0b33e5@d41d8cd9",
+    "@opam/odate@link:../../fork/odate/package.json": {
+      "id": "@opam/odate@link:../../fork/odate/package.json",
       "name": "@opam/odate",
-      "version":
-        "github:jaredly/odate#132a9e794994c275c64e0b0b7c7803f9fa0b33e5",
+      "version": "link:../../fork/odate/package.json",
       "source": {
-        "type": "install",
-        "source": [
-          "github:jaredly/odate#132a9e794994c275c64e0b0b7c7803f9fa0b33e5"
-        ]
+        "type": "link",
+        "path": "../../fork/odate",
+        "manifest": "package.json"
       },
       "overrides": [],
-      "dependencies": [],
+      "dependencies": [
+        "ocaml@4.7.1003@d41d8cd9", "@opam/menhir@opam:20181113@0c8257a8",
+        "@opam/dune@opam:1.6.3@a7d7baed"
+      ],
       "devDependencies": []
     },
     "@opam/ocamlfind@opam:1.8.0@96572762": {
