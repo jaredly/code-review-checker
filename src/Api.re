@@ -9,17 +9,18 @@ let getAuth = () => {
   let fpath = Filename.concat(homeDirectory(), ".arcrc");
   let json = Json.parse(Files.readFileExn(fpath));
   open Json.Infix;
+  let base = json |> Json.get("config") |?> Json.get("default") |?> Json.string |! "No config.default";
   let hosts = json |> Json.get("hosts") |?> Json.obj |? [];
   switch hosts {
     | [] => failwith("No hosts in .arcrc")
     | [(hostname, obj), ..._] => switch (obj |> Json.get("token") |?> Json.string) {
       | None => failwith("No token for host in .arcrc")
-      | Some(token) => (hostname, token)
+      | Some(token) => (hostname, token, base)
     }
   }
 };
 
-let (hostname, token) = getAuth();
+let (hostname, token, base) = getAuth();
 
 let kwargs = items => String.concat("&", items->Belt.List.map(((k, v)) => k ++ "=" ++ EncodeURIComponent.encode(v)));
 

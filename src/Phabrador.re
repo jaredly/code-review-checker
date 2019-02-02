@@ -8,6 +8,8 @@ let str = Fluid.string;
 
 let gray = n => {r: n, g: n, b: n, a: 1.};
 
+external openUrl: string => unit = "phabrador_openUrl";
+
 let%component revisionList = (~revisions, ~title, hooks) => {
   <view layout={Layout.style(~alignItems=AlignStretch, ())}>
     <view backgroundColor=gray(0.9) layout={Layout.style(~paddingHorizontal=8., ~paddingVertical=4., ())}>
@@ -19,12 +21,15 @@ let%component revisionList = (~revisions, ~title, hooks) => {
         <view layout={Layout.style(~paddingVertical=8., ~paddingHorizontal=8., ())}>
           {str(rev.Revision.title)}
           {str(ODate.Unix.Printer.to_birthday(date))}
+          <button onPress={() => openUrl(Api.base ++ "/D" ++ string_of_int(rev.id))}
+            title="Open Diff"
+          />
         </view>
       }),
       ()
     )}
   </view>
-}
+};
 
 type revisions = {
   readyToLand: list(Data.Revision.t),
