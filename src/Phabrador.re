@@ -113,7 +113,7 @@ let gray = n => {r: n, g: n, b: n, a: 1.};
 
 let revisionList = (~revisions, ~title, hooks) => {
   <view layout={Layout.style(~alignItems=AlignStretch, ())}>
-    <view backgroundColor=gray(0.8) layout={Layout.style(~paddingHorizontal=8., ~paddingVertical=4., ())}>
+    <view backgroundColor=gray(0.9) layout={Layout.style(~paddingHorizontal=8., ~paddingVertical=4., ())}>
       {str(title)}
     </view>
     {Fluid.Native.view(
