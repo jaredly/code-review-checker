@@ -67,6 +67,7 @@ module Revision = {
     let%F statusObj = fields |> Json.get("status");
     let%F status = statusObj |> Json.get("value") |?> Json.string;
     let%F color = statusObj |> Json.get("color.ansi") |?> Json.string;
+    print_endline(status);
 
     Some({title, phid, id, repositoryPHID, authorPHID, summary, dateModified, dateCreated, status, color});
   };
@@ -78,14 +79,14 @@ let call = (endp, args, cb) => {
   let url = hostname ++ endp ++ "?" ++ kwargs([("api.token", token), ...args]);
   print_endline("calling " ++ url);
   fetch(~url, ((body, status)) => {
-  /* print_endline(body); */
-  let json = try (Json.parse(body)) {
-    | Failure(f) => failwith("Unable to parse body: " ++ f)
-  };
-  module F = Lets.Opt.Force;
-  let%F result = json |> Json.get("result");
-  cb(result);
-});
+    Files.writeFileExn("./result-" ++ endp, body);
+    let json = try (Json.parse(body)) {
+      | Failure(f) => failwith("Unable to parse body: " ++ f)
+    };
+    module F = Lets.Opt.Force;
+    let%F result = json |> Json.get("result");
+    cb(result);
+  });
 };
 
 let whoAmI = cb => {
@@ -108,24 +109,85 @@ let getRevisions = (me, cb) => {
   })
 };
 
-let main = (~assetsDir as _, hooks) => {
+let revisionList = (~revisions, ~title, hooks) => {
+  <view>
+    {str(title)}
+    {Fluid.Native.view(
+      ~children=revisions->Belt.List.map(rev => {
+        <view layout={Layout.style(~paddingVertical=8., ~paddingHorizontal=8., ())}>
+          {str(rev.Revision.title)}
+          /* {str(rev.Revision.dateModified)} */
+        </view>
+      }),
+      ()
+    )}
+  </view>
+}
+
+let main = (~assetsDir, ~setTitle, hooks) => {
+  let%hook (revisions, setRevisions) = Fluid.Hooks.useState(None);
   let%hook () = Fluid.Hooks.useEffect(() => {
     whoAmI(person => {
       getRevisions(person, revisions => {
-        print_endline("ok");
+        let readyToLand = revisions->Belt.List.keep(r => r.authorPHID == person.Person.phid && r.status == "accepted");
+        let waiting = revisions->Belt.List.keep(r => r.authorPHID == person.Person.phid && r.status == "needs-review");
+        let readyToReview = revisions->Belt.List.keep(r => r.authorPHID != person.Person.phid && r.status == "needs-review");
+        let changesRequested = revisions->Belt.List.keep(r => r.authorPHID == person.Person.phid && r.status == "needs-revision");
+        let title = ([
+          (readyToLand, "✅"),
+          (changesRequested, "❌"),
+          (readyToReview, "🙏"),
+          (waiting, "⌛"),
+        ])->Belt.List.keepMap(((items, emoji)) => items == [] ? None : Some(emoji ++ " " ++ string_of_int(List.length(items)))) |> String.concat(" · ");
+        setTitle(Fluid.App.String(title));
+        setRevisions(Some((person, revisions)));
       });
     });
     () => ()
   }, ());
-  <view>
-    {str("Hello")}
-  </view>
+      <view layout={Layout.style(~width=500., ~height=500., ())}>
+      <scrollView
+        layout={Layout.style(~flexGrow=1., ~alignSelf=AlignStretch, ~overflow=Scroll, ())}
+      >
+      <view>
+      {
+
+  switch (revisions) {
+    | None => 
+        {str("⌛ loading...")}
+    | Some((person, revisions)) =>
+      let readyToLand = revisions->Belt.List.keep(r => r.authorPHID == person.Person.phid && r.status == "accepted");
+      let waiting = revisions->Belt.List.keep(r => r.authorPHID == person.Person.phid && r.status == "needs-review");
+      let readyToReview = revisions->Belt.List.keep(r => r.authorPHID != person.Person.phid && r.status == "needs-review");
+      let changesRequested = revisions->Belt.List.keep(r => r.authorPHID == person.Person.phid && r.status == "needs-revision");
+      let title = Printf.sprintf("✅ %d | ❌ %d | 🙏 %d", List.length(readyToLand), List.length(waiting), List.length(readyToReview));
+      <view>
+        {str("Act now")}
+        <RevisionList
+          title="✅ Ready to land"
+          revisions=readyToLand
+        />
+        <RevisionList
+          title="❌ Ready to update"
+          revisions=changesRequested
+        />
+        <RevisionList
+          title="🙏 Ready to review"
+          revisions=readyToReview
+        />
+        <RevisionList
+          title="⌛ Waiting on review"
+          revisions=waiting
+        />
+      </view>
+      }
+    }
+    </view>
+    </scrollView>
+    </view>
 }
 
 let run = assetsDir => {
-
-  /* startChecking(assetsDir); */
-
   Fluid.App.launch(
     ~isAccessory=true,
     () => {
@@ -137,6 +199,8 @@ let run = assetsDir => {
 
     let closeWindow = ref(() => ());
 
+    let statusBarItem = ref(None);
+
     let win = Fluid.launchWindow(
       ~title="Phabrador",
       ~floating=true,
@@ -144,18 +208,24 @@ let run = assetsDir => {
       ~onBlur=win => {
         Fluid.Window.hide(win);
       },
-      <Main assetsDir />
+      <Main
+        assetsDir
+        setTitle={title => switch (statusBarItem^) {
+          | None => ()
+          | Some(item) => Fluid.App.statusBarSetTitle(item, title)
+        }}
+      />
     );
 
     closeWindow := () => Fluid.Window.hide(win);
 
-    let _statusBarItem = Fluid.App.statusBarItem(
+    statusBarItem := Some(Fluid.App.statusBarItem(
       ~isVariableLength=true,
-      ~title=String("✅ 3 | ❌ 2 | 🙏 4"),
+      ~title=String("⌛ Connecting..."),
       ~onClick=pos => {
         Fluid.Window.showAtPos(win, pos)
       }
-    );
+    ));
   });
 
 };

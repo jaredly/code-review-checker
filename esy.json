@@ -12,6 +12,7 @@
     "ocaml": ">=4.7.0",
     "@opam/dune": "*",
     "@opam/reason": "*",
+    "@opam/odate": "jaredly/odate",
     "let-anything-esy": "*",
     "fluid": "jaredly/fluid",
     "belt": "jaredly/belt",
