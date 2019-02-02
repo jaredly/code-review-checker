@@ -43,27 +43,43 @@ let%component loadingImage = (~src, ~layout, hooks) => {
 let%component revision = (~rev: Data.Revision.t, ~users: Belt.Map.String.t(Person.t), hooks) => {
   let author = users->Belt.Map.String.get(rev.authorPHID);
   let date = ODate.Unix.From.seconds(rev.dateModified);
-  <view layout={Layout.style(~paddingVertical=8., ~paddingHorizontal=8., ())}>
-    {str(rev.Revision.title)}
-    {str(ODate.Unix.Printer.to_birthday(date))}
-    {switch author {
-      | None => str("Unknown author: " ++ rev.authorPHID)
-      | Some(person) => <view>
-      {str(person.userName)}
-      /* <loadingImage src={person.image} 
-      layout={Layout.style(~width=30., ~height=30., ())} /> */
-      <image src={
-        switch (person.loadedImage) {
-          | None => Plain(person.image)
-          | Some(i) => Preloaded(i)
-        }
-        /* Plain(person.image) */
-      } layout={Layout.style(~width=30., ~height=30., ())} />
+  <view layout={Layout.style(
+    ~paddingVertical=8.,
+    ~marginHorizontal=8.,
+    ~flexDirection=Row,
+    ())}
+  >
+    <view
+    >
+      {switch author {
+        | None => str("Unknown author: " ++ rev.authorPHID)
+        | Some(person) =>
+        <view>
+          /* {str(person.userName)} */
+          /* <loadingImage src={person.image} 
+          layout={Layout.style(~width=30., ~height=30., ())} /> */
+          <image
+            src={
+              switch (person.loadedImage) {
+                | None => Plain(person.image)
+                | Some(i) => Preloaded(i)
+              }
+            }
+            layout={Layout.style(~width=30., ~height=30., ())}
+          />
+        </view>
+      }}
+    </view>
+    <view 
+    >
+      {str(~font={fontName: "Helvetica", fontSize: 18.}, rev.Revision.title)}
+      <view layout={Layout.style(~flexDirection=Row, ())}>
+        {str(ODate.Unix.Printer.to_birthday(date))}
+        <button onPress={() => openUrl(Api.base ++ "/D" ++ string_of_int(rev.id))}
+          title="Open Diff"
+        />
       </view>
-    }}
-    <button onPress={() => openUrl(Api.base ++ "/D" ++ string_of_int(rev.id))}
-      title="Open Diff"
-    />
+    </view>
   </view>
 };
 
