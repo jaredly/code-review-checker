@@ -24,47 +24,63 @@ let (hostname, token, base) = getAuth();
 
 let kwargs = items => String.concat("&", items->Belt.List.map(((k, v)) => k ++ "=" ++ EncodeURIComponent.encode(v)));
 
-let call = (endp, args, cb) => {
+let call = (endp, args) => {
   let url = hostname ++ endp ++ "?" ++ kwargs([("api.token", token), ...args]);
-
-  /* let body = Files.readFileExn("./result-" ++ endp);
+  print_endline("calling " ++ url);
+  let%Lets.Async (body, status) = fetch(~url);
+  Files.writeFileExn("./result-" ++ endp, body);
   let json = try (Json.parse(body)) {
     | Failure(f) => failwith("Unable to parse body: " ++ f)
   };
-  module F = Lets.Opt.Force;
-  let%F result = json |> Json.get("result");
-  FluidMac.Fluid.App.setTimeout(() => {
-    cb(result);
-  }, 10); */
-
-  print_endline("calling " ++ url);
-  fetch(~url, ((body, status)) => {
-    Files.writeFileExn("./result-" ++ endp, body);
-    let json = try (Json.parse(body)) {
-      | Failure(f) => failwith("Unable to parse body: " ++ f)
-    };
-    module F = Lets.Opt.Force;
-    let%F result = json |> Json.get("result");
-    cb(result);
-  });
+  let%Lets.Opt.Force result = json |> Json.get("result");
+  Lets.Async.resolve(result);
 };
+
+let wait = (time, cb) => FluidMac.Fluid.App.setTimeout(cb, time);
+
+let callOffline = (endp, args) => {
+  let body = Files.readFileExn("./result-" ++ endp);
+  let json = try (Json.parse(body)) {
+    | Failure(f) => failwith("Unable to parse body: " ++ f)
+  };
+  let%Lets.Opt.Force result = json |> Json.get("result");
+  let%Lets.Async () = wait(10);
+  Lets.Async.resolve(result);
+};
+
+/* let call = callOffline; */
 
 let whoAmI = cb => {
-  call("user.whoami", [], result => {
-    module F = Lets.Opt.Force;
-    let%F person = Data.Person.parse(result);
-    cb(person)
-  });
-};
+  let%Lets.Async result = call("user.whoami", []);
+  let%Lets.Opt.Force person = Data.Person.parse(result);
+  Lets.Async.resolve(person)
+}(cb);
 
-let getRevisions = (me, cb) => {
-  call("differential.revision.search", [
+let getRevisions = (me) => {
+  let%Lets.Async result = call("differential.revision.search", [
     ("queryKey", "active"),
     ("constraints[responsiblePHIDs][0]", me.Data.Person.phid),
-  ], result => {
-    module F = Lets.Opt.Force;
-    open Json.Infix;
-    let%F data = result |> Json.get("data") |?> Json.array;
-    cb(data->Belt.List.keepMap(Data.Revision.parse))
-  })
+  ]);
+  open Json.Infix;
+  let%Lets.Opt.Force data = result |> Json.get("data") |?> Json.array;
+  Lets.Async.resolve(data->Belt.List.keepMap(Data.Revision.parse))
+};
+
+let getUsers = (phids) => {
+  let%Lets.Async result = call("user.query", phids->Belt.List.mapWithIndex((i, phid) => (
+    ("phids[" ++ string_of_int(i) ++ "]", phid)
+  )));
+  let%Lets.Opt.Force data = result |> Json.array;
+  /* let%Lets.Async */
+  let people = data->Belt.List.keepMap(Data.Person.parse);
+  let people =
+    people->Belt.List.map((person, cb) =>
+      FluidMac.Fluid.NativeInterface.preloadImage(~src=person.image, ~onDone=loadedImage => {
+        cb({...person, loadedImage: Some(loadedImage)})
+      })
+    );
+  let%Lets.Async people = Lets.Async.all(people);
+  Lets.Async.resolve(people->Belt.List.reduce(Belt.Map.String.empty, (map, person) => {
+    Belt.Map.String.set(map, person.phid, person)
+  }))
 };

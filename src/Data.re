@@ -1,6 +1,8 @@
 
 module Person = {
-  type t = {userName: string, realName: string, phid: string, image: string};
+  type t = {userName: string, realName: string, phid: string, image: string,
+  loadedImage: option(FluidMac.Fluid.NativeInterface.image)
+  };
   let parse = result => {
     module F = Lets.Opt;
     open Json.Infix;
@@ -8,7 +10,7 @@ module Person = {
     let%F userName = result |> Json.get("userName") |?> Json.string;
     let%F realName = result |> Json.get("realName") |?> Json.string;
     let%F image = result |> Json.get("image") |?> Json.string;
-    Some({userName, realName, image, phid});
+    Some({userName, realName, image, phid, loadedImage: None});
   };
 };
 

@@ -2,7 +2,20 @@ module Async = {
   type t('a) = ('a => unit) => unit;
   /* let try_ = (promise, continuation) => Js.Promise.catch(continuation, promise); */
   let let_ = (promise, continuation) => fin => promise(v => continuation(v, fin));
-  /* let resolve = Js.Promise.resolve; */
+  let resolve = (data, fn) => fn(data);
+  let all = (items, fn) => {
+    let items = items->Belt.List.toArray;
+    let results = items->Belt.Array.map((_) => None);
+    let set = (i, value) => {
+      results[i] = Some(value)
+      if (results->Belt.Array.every(m => m != None)) {
+        fn(results->Belt.Array.keepMap(m => m)->Belt.List.fromArray)
+      }
+    };
+    items->Belt.Array.forEachWithIndex((i, fn) => {
+      fn(set(i))
+    });
+  };
   /* let reject = Js.Promise.reject; */
   /* let map = (promise, fn) => Js.Promise.then_(v => Js.Promise.resolve(fn(v)), promise); */
 

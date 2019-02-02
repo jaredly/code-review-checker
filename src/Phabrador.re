@@ -10,17 +10,60 @@ let gray = n => {r: n, g: n, b: n, a: 1.};
 
 external openUrl: string => unit = "phabrador_openUrl";
 
-let%component revisionList = (~revisions, ~title, hooks) => {
+module ImageCache = Fluid.Cache({
+  type arg = string;
+  type result = Fluid.NativeInterface.image;
+  let reason = Fluid.noReason;
+  let fetch = (src, onDone) => {
+    Fluid.NativeInterface.preloadImage(~src, ~onDone)
+  }
+});
+
+/* let%component imageLoader = (~src, ~layout, hooks) => {
+  let data = ImageCache.fetch(src);
+
+  <image src=Preloaded(data) layout />
+};
+
+let%component loadingImage = (~src, ~layout, hooks) => {
+  let%hook suspended = Fluid.Hooks.useSuspenseHandler();
+
+  <view layout >
+  {
+  if (suspended != []) {
+    str("Preloading...")
+  } else {
+    <imageLoader src layout />
+  }
+}
+  </view>
+}; */
+
+let%component revisionList = (~revisions: list(Revision.t), ~users: Belt.Map.String.t(Person.t), ~title, hooks) => {
   <view layout={Layout.style(~alignItems=AlignStretch, ())}>
     <view backgroundColor=gray(0.9) layout={Layout.style(~paddingHorizontal=8., ~paddingVertical=4., ())}>
       {str(title)}
     </view>
     {Fluid.Native.view(
       ~children=revisions->Belt.List.map(rev => {
-        let date = ODate.Unix.From.seconds(rev.Revision.dateModified);
+        let author = users->Belt.Map.String.get(rev.authorPHID);
+        let date = ODate.Unix.From.seconds(rev.dateModified);
         <view layout={Layout.style(~paddingVertical=8., ~paddingHorizontal=8., ())}>
           {str(rev.Revision.title)}
           {str(ODate.Unix.Printer.to_birthday(date))}
+          {switch author {
+            | None => str("Unknown author: " ++ rev.authorPHID)
+            | Some(person) => <view>
+            {str(person.userName)}
+            <image src={
+              switch (person.loadedImage) {
+                | None => Plain(person.image)
+                | Some(i) => Preloaded(i)
+              }
+              /* Plain(person.image) */
+            } layout={Layout.style(~width=30., ~height=30., ())} />
+            </view>
+          }}
           <button onPress={() => openUrl(Api.base ++ "/D" ++ string_of_int(rev.id))}
             title="Open Diff"
           />
@@ -59,35 +102,37 @@ let organizeRevisions = (person, revisions: list(Data.Revision.t)) => {
 };
 
 let%component main = (~assetsDir, ~setTitle, hooks) => {
-  let%hook (revisions, setRevisions) = Fluid.Hooks.useState(None);
+  let%hook (data, setData) = Fluid.Hooks.useState(None);
   let%hook () =
     Fluid.Hooks.useEffect(
       () => {
-        Api.whoAmI(person =>
-          Api.getRevisions(
-            person,
-            revisions => {
-              let revisions = organizeRevisions(person, revisions);
-              let title =
-                [
-                  (revisions.readyToLand, "✅"),
-                  (revisions.changesRequested, "❌"),
-                  (revisions.readyToReview, "🙏"),
-                  (revisions.waiting, "⌛"),
-                ]
-                ->Belt.List.keepMap(((items, emoji)) =>
-                    items == []
-                      ? None
-                      : Some(
-                          emoji ++ " " ++ string_of_int(List.length(items)),
-                        )
-                  )
-                |> String.concat(" · ");
-              setTitle(Fluid.App.String(title));
-              setRevisions(Some((person, revisions)));
-            },
-          )
-        );
+        {
+          module C = Lets.Async.Consume;
+          let%C person = Api.whoAmI;
+          let%C revisions = Api.getRevisions(person);
+          let%C users = Api.getUsers(revisions->Belt.List.map(r => r.Revision.authorPHID));
+          Printf.printf("Got users %d\n", Belt.Map.String.size(users));
+          print_endline("ok");
+          let revisions = organizeRevisions(person, revisions);
+          let title =
+            [
+              (revisions.readyToLand, "✅"),
+              (revisions.changesRequested, "❌"),
+              (revisions.readyToReview, "🙏"),
+              (revisions.waiting, "⌛"),
+            ]
+            ->Belt.List.keepMap(((items, emoji)) =>
+                items == []
+                  ? None
+                  : Some(
+                      emoji ++ " " ++ string_of_int(List.length(items)),
+                    )
+              )
+            |> String.concat(" · ");
+          setTitle(Fluid.App.String(title));
+          setData(Some((person, users, revisions)));
+        };
+
         () => ();
       },
       (),
@@ -102,23 +147,26 @@ let%component main = (~assetsDir, ~setTitle, hooks) => {
         (),
       )}>
       <view layout={Layout.style(~alignItems=AlignStretch, ())}>
-        {switch (revisions) {
+        {switch (data) {
          | None => str("⌛ loading...")
          | Some((
              person,
+             users,
              {readyToLand, readyToReview, waiting, changesRequested},
            )) =>
            <view layout={Layout.style(~alignItems=AlignStretch, ())}>
-             <revisionList title="✅ Ready to land" revisions=readyToLand />
+             <revisionList title="✅ Ready to land" users revisions=readyToLand />
              <revisionList
                title="❌ Ready to update"
+               users
                revisions=changesRequested
              />
              <revisionList
                title="🙏 Ready to review"
+               users
                revisions=readyToReview
              />
-             <revisionList title="⌛ Waiting on review" revisions=waiting />
+             <revisionList title="⌛ Waiting on review" users revisions=waiting />
            </view>
          }}
       </view>
