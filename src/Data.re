@@ -62,7 +62,6 @@ module Revision = {
     let%F statusObj = fields |> Json.get("status");
     let%F status = statusObj |> Json.get("value") |?> Json.string;
     let%F color = statusObj |> Json.get("color.ansi") |?> Json.string;
-    print_endline(status);
 
     Some({title, phid, id, repositoryPHID, authorPHID, diffPHID, summary, dateModified, dateCreated, status, color});
   };

@@ -13,7 +13,16 @@ void phabrador_setTimeout(value callback, value milis_v) {
   int64_t nanos = milis * 1000 * 1000;
   // printf("Waiting for %d milis, %f nanos\n", milis, nanos);
   dispatch_after(dispatch_time(DISPATCH_TIME_NOW, nanos), dispatch_get_main_queue(), ^{
-    callUnit(cbid);
+    CAMLparam0();
+
+    static value * closure_f = NULL;
+    if (closure_f == NULL) {
+        /* First time around, look up by name */
+        closure_f = caml_named_value("phabrador_timeout_cb");
+    }
+    caml_callback2(*closure_f, Val_int(cbid), Val_unit);
+
+    CAMLreturn0;
   });
   CAMLreturn0;
 }

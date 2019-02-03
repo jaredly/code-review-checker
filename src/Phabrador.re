@@ -10,6 +10,10 @@ let gray = n => {r: n, g: n, b: n, a: 1.};
 
 external openUrl: string => unit = "phabrador_openUrl";
 
+module TimeoutTracker = FluidMac.Tracker({type arg = unit; let name = "phabrador_timeout_cb"; let once = true;});
+external setTimeout: (TimeoutTracker.callbackId, int) => unit = "phabrador_setTimeout";
+let setTimeout = (fn, time) => setTimeout(TimeoutTracker.track(fn), time);
+
 module ImageCache = Fluid.Cache({
   type arg = string;
   type result = Fluid.NativeInterface.image;
@@ -64,14 +68,12 @@ let recentDate = seconds => {
     } else {
       To.string(~tz=ODate.Local, datePrinter, date)
     }
-    /* Printer.to_birthday(date) */
   }
 };
 
 let%component revision = (~rev: Data.Revision.t, ~repos: Belt.Map.String.t(Repository.t), ~users: Belt.Map.String.t(Person.t), hooks) => {
   let author = users->Belt.Map.String.get(rev.authorPHID);
   let repo = repos->Belt.Map.String.get(rev.repositoryPHID);
-  /* let date = ODate.Unix.From.seconds(rev.dateModified); */
   <view layout={Layout.style(
     ~paddingVertical=8.,
     ~marginHorizontal=8.,
@@ -95,8 +97,13 @@ let%component revision = (~rev: Data.Revision.t, ~repos: Belt.Map.String.t(Repos
                 | Some(i) => Preloaded(i)
               }
             }
-            layout={Layout.style(~width=30., ~height=30., ())}
+            layout={Layout.style(~margin=3., ~width=30., ~height=30., ())}
           />
+        <button
+          layout={Layout.style(~left=-5., ())}
+        onPress={() => openUrl(Api.base ++ "/D" ++ string_of_int(rev.id))}
+          title="Go"
+        />
         </view>
       }}
     </view>
@@ -106,9 +113,6 @@ let%component revision = (~rev: Data.Revision.t, ~repos: Belt.Map.String.t(Repos
       {str(~font={fontName: "Helvetica", fontSize: 18.}, rev.Revision.title)}
       <view layout={Layout.style(~flexDirection=Row, ())}>
         {str(recentDate(rev.dateModified))}
-        <button onPress={() => openUrl(Api.base ++ "/D" ++ string_of_int(rev.id))}
-          title="Open Diff"
-        />
         <view layout={Layout.style(~flexGrow=1., ())} />
         {str(switch repo {
           | None => "Unknown repo"
@@ -160,38 +164,47 @@ let organizeRevisions = (person, revisions: list(Data.Revision.t)) => {
   {readyToLand, readyToReview, waiting, changesRequested};
 };
 
+let fetchData = () => {
+  module C = Lets.Async;
+  let%C person = Api.whoAmI;
+  let%C revisions = Api.getRevisions(person);
+  let%C users = Api.getUsers(revisions->Belt.List.map(r => r.Revision.authorPHID));
+  let%C repos = Api.getRepositories(revisions->Belt.List.map(r => r.repositoryPHID));
+  let revisions = organizeRevisions(person, revisions);
+  Lets.Async.resolve((person, users, revisions, repos))
+};
+
+let makeTitle = revisions => {
+  [
+    (revisions.readyToLand, "✅"),
+    (revisions.changesRequested, "❌"),
+    (revisions.readyToReview, "🙏"),
+    (revisions.waiting, "⌛"),
+  ]
+  ->Belt.List.keepMap(((items, emoji)) =>
+      items == []
+        ? None
+        : Some(
+            emoji ++ " " ++ string_of_int(List.length(items)),
+          )
+    )
+  |> String.concat(" · ");
+};
+
 let%component main = (~assetsDir, ~setTitle, hooks) => {
   let%hook (data, setData) = Fluid.Hooks.useState(None);
   let%hook () =
     Fluid.Hooks.useEffect(
       () => {
-        {
-          module C = Lets.Async.Consume;
-          let%C person = Api.whoAmI;
-          let%C revisions = Api.getRevisions(person);
-          let%C users = Api.getUsers(revisions->Belt.List.map(r => r.Revision.authorPHID));
-          Printf.printf("Got users %d\n", Belt.Map.String.size(users));
-          print_endline("ok");
-          let%C repos = Api.getRepositories(revisions->Belt.List.map(r => r.repositoryPHID));
-          let revisions = organizeRevisions(person, revisions);
-          let title =
-            [
-              (revisions.readyToLand, "✅"),
-              (revisions.changesRequested, "❌"),
-              (revisions.readyToReview, "🙏"),
-              (revisions.waiting, "⌛"),
-            ]
-            ->Belt.List.keepMap(((items, emoji)) =>
-                items == []
-                  ? None
-                  : Some(
-                      emoji ++ " " ++ string_of_int(List.length(items)),
-                    )
-              )
-            |> String.concat(" · ");
-          setTitle(Fluid.App.String(title));
+        let rec loop = () => {
+          print_endline("Looping here");
+          let%Lets.Async.Consume (person, users, revisions, repos) = fetchData();
+          /* print_endline("Fetched"); */
+          setTitle(Fluid.App.String(makeTitle(revisions)));
           setData(Some((person, users, revisions, repos)));
+          setTimeout(loop, 5 * 60 * 1000);
         };
+        loop();
 
         () => ();
       },

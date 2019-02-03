@@ -26,9 +26,10 @@ let kwargs = items => String.concat("&", items->Belt.List.map(((k, v)) => k ++ "
 
 let call = (endp, args) => {
   let url = hostname ++ endp ++ "?" ++ kwargs([("api.token", token), ...args]);
-  print_endline("calling " ++ url);
+  /* print_endline("calling " ++ url); */
   let%Lets.Async (body, status) = fetch(~url);
-  Files.writeFileExn("./result-" ++ endp, body);
+  /* STOPSHIP make this dev-only or something */
+  Files.writeFileExn("./.cache/" ++ endp ++ ".json", body);
   let json = try (Json.parse(body)) {
     | Failure(f) => failwith("Unable to parse body: " ++ f)
   };
@@ -39,7 +40,7 @@ let call = (endp, args) => {
 let wait = (time, cb) => FluidMac.Fluid.App.setTimeout(cb, time);
 
 let callOffline = (endp, args) => {
-  let body = Files.readFileExn("./result-" ++ endp);
+  let body = Files.readFileExn("./.cache/" ++ endp ++ ".json");
   let json = try (Json.parse(body)) {
     | Failure(f) => failwith("Unable to parse body: " ++ f)
   };
