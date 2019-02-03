@@ -40,10 +40,38 @@ let%component loadingImage = (~src, ~layout, hooks) => {
   </view>
 }; */
 
+let timePrinter = ODate.Unix.To.generate_printer("%I:%M%P")->Lets.Opt.force;
+let datePrinter = ODate.Unix.To.generate_printer("%b %E, %Y")->Lets.Opt.force;
+
+let recentDate = seconds => {
+  open ODate.Unix;
+  let date = From.seconds(seconds);
+  let now = now();
+  let today = beginning_of_the_day(~tz=ODate.Local, now);
+  let yesterday = today->advance_by_days(-1);
+
+  if (date > today) {
+    "Today at " ++ To.string(~tz=ODate.Local, timePrinter, date)
+  } else if (date > yesterday) {
+    "Yesterday at " ++ To.string(~tz=ODate.Local, timePrinter, date)
+  } else {
+    let diff = between(date, now);
+    let days = ODuration.To.day(diff);
+    if (days <= 10) {
+      Printf.sprintf("%d days ago", days);
+    } else if (days <= 7 * 4) {
+      Printf.sprintf("%d weeks ago", days / 7);
+    } else {
+      To.string(~tz=ODate.Local, datePrinter, date)
+    }
+    /* Printer.to_birthday(date) */
+  }
+};
+
 let%component revision = (~rev: Data.Revision.t, ~repos: Belt.Map.String.t(Repository.t), ~users: Belt.Map.String.t(Person.t), hooks) => {
   let author = users->Belt.Map.String.get(rev.authorPHID);
   let repo = repos->Belt.Map.String.get(rev.repositoryPHID);
-  let date = ODate.Unix.From.seconds(rev.dateModified);
+  /* let date = ODate.Unix.From.seconds(rev.dateModified); */
   <view layout={Layout.style(
     ~paddingVertical=8.,
     ~marginHorizontal=8.,
@@ -77,7 +105,7 @@ let%component revision = (~rev: Data.Revision.t, ~repos: Belt.Map.String.t(Repos
     >
       {str(~font={fontName: "Helvetica", fontSize: 18.}, rev.Revision.title)}
       <view layout={Layout.style(~flexDirection=Row, ())}>
-        {str(ODate.Unix.Printer.to_birthday(date))}
+        {str(recentDate(rev.dateModified))}
         <button onPress={() => openUrl(Api.base ++ "/D" ++ string_of_int(rev.id))}
           title="Open Diff"
         />
