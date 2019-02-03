@@ -40,13 +40,15 @@ let%component loadingImage = (~src, ~layout, hooks) => {
   </view>
 }; */
 
-let%component revision = (~rev: Data.Revision.t, ~users: Belt.Map.String.t(Person.t), hooks) => {
+let%component revision = (~rev: Data.Revision.t, ~repos: Belt.Map.String.t(Repository.t), ~users: Belt.Map.String.t(Person.t), hooks) => {
   let author = users->Belt.Map.String.get(rev.authorPHID);
+  let repo = repos->Belt.Map.String.get(rev.repositoryPHID);
   let date = ODate.Unix.From.seconds(rev.dateModified);
   <view layout={Layout.style(
     ~paddingVertical=8.,
     ~marginHorizontal=8.,
     ~flexDirection=Row,
+    ~alignSelf=AlignStretch,
     ())}
   >
     <view
@@ -71,6 +73,7 @@ let%component revision = (~rev: Data.Revision.t, ~users: Belt.Map.String.t(Perso
       }}
     </view>
     <view 
+    layout={Layout.style(~flexGrow=1., ~flexShrink=1., ())}
     >
       {str(~font={fontName: "Helvetica", fontSize: 18.}, rev.Revision.title)}
       <view layout={Layout.style(~flexDirection=Row, ())}>
@@ -78,18 +81,25 @@ let%component revision = (~rev: Data.Revision.t, ~users: Belt.Map.String.t(Perso
         <button onPress={() => openUrl(Api.base ++ "/D" ++ string_of_int(rev.id))}
           title="Open Diff"
         />
+        <view layout={Layout.style(~flexGrow=1., ())} />
+        {str(switch repo {
+          | None => "Unknown repo"
+          | Some({name}) => name
+        })}
       </view>
     </view>
   </view>
 };
 
-let%component revisionList = (~revisions: list(Revision.t), ~users: Belt.Map.String.t(Person.t), ~title, hooks) => {
+let%component revisionList = (~revisions: list(Revision.t),
+~repos: Belt.Map.String.t(Repository.t),
+~users: Belt.Map.String.t(Person.t), ~title, hooks) => {
   <view layout={Layout.style(~alignItems=AlignStretch, ())}>
     <view backgroundColor=gray(0.9) layout={Layout.style(~paddingHorizontal=8., ~paddingVertical=4., ())}>
       {str(title)}
     </view>
     {Fluid.Native.view(
-      ~children=revisions->Belt.List.map(rev => <revision users rev /> ),
+      ~children=revisions->Belt.List.map(rev => <revision repos users rev /> ),
       ()
     )}
   </view>
@@ -134,6 +144,7 @@ let%component main = (~assetsDir, ~setTitle, hooks) => {
           let%C users = Api.getUsers(revisions->Belt.List.map(r => r.Revision.authorPHID));
           Printf.printf("Got users %d\n", Belt.Map.String.size(users));
           print_endline("ok");
+          let%C repos = Api.getRepositories(revisions->Belt.List.map(r => r.repositoryPHID));
           let revisions = organizeRevisions(person, revisions);
           let title =
             [
@@ -151,7 +162,7 @@ let%component main = (~assetsDir, ~setTitle, hooks) => {
               )
             |> String.concat(" · ");
           setTitle(Fluid.App.String(title));
-          setData(Some((person, users, revisions)));
+          setData(Some((person, users, revisions, repos)));
         };
 
         () => ();
@@ -174,20 +185,23 @@ let%component main = (~assetsDir, ~setTitle, hooks) => {
              person,
              users,
              {readyToLand, readyToReview, waiting, changesRequested},
+             repos
            )) =>
            <view layout={Layout.style(~alignItems=AlignStretch, ())}>
-             <revisionList title="✅ Ready to land" users revisions=readyToLand />
+             <revisionList title="✅ Ready to land" users repos revisions=readyToLand />
              <revisionList
                title="❌ Ready to update"
+               repos
                users
                revisions=changesRequested
              />
              <revisionList
                title="🙏 Ready to review"
+               repos
                users
                revisions=readyToReview
              />
-             <revisionList title="⌛ Waiting on review" users revisions=waiting />
+             <revisionList title="⌛ Waiting on review" users repos revisions=waiting />
            </view>
          }}
       </view>

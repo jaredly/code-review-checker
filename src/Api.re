@@ -84,3 +84,16 @@ let getUsers = (phids) => {
     Belt.Map.String.set(map, person.phid, person)
   }))
 };
+
+let getRepositories = (phids) => {
+  let%Lets.Async result = call("diffusion.repository.search", phids->Belt.List.mapWithIndex((i, phid) => (
+    ("constraints[phids][" ++ string_of_int(i) ++ "]", phid)
+  )));
+  open Json.Infix;
+  let%Lets.Opt.Force data = result |> Json.get("data") |?> Json.array;
+  let repos = data->Belt.List.keepMap(Data.Repository.parse);
+  Lets.Async.resolve(repos->Belt.List.reduce(Belt.Map.String.empty, (map, repo) => {
+    Belt.Map.String.set(map, repo.phid, repo)
+  }))
+};
+
