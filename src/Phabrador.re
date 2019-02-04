@@ -204,10 +204,12 @@ let setCancellableTimeout = (fn, tm) => {
 };
 
 let refreshTime = 5 * 60 * 1000;
-let refreshTime = 5 * 1000;
+/* let refreshTime = 5 * 1000; */
 
 let%component main = (~assetsDir, ~refresh, ~setTitle, hooks) => {
   let%hook (data, setData) = Fluid.Hooks.useState(None);
+  let%hook (refreshing, setRefreshing) = Fluid.Hooks.useState(false);
+
   let%hook () =
     Fluid.Hooks.useEffect(
       () => {
@@ -215,10 +217,12 @@ let%component main = (~assetsDir, ~refresh, ~setTitle, hooks) => {
         let rec loop = () => {
           cancel^();
           print_endline("Looping here");
+          setRefreshing(true);
           let%Lets.Async.Consume (person, users, revisions, repos) = fetchData();
-          /* print_endline("Fetched"); */
+          print_endline("Fetched");
           setTitle(Fluid.App.String(makeTitle(revisions)));
           setData(Some((person, users, revisions, repos)));
+          setRefreshing(false);
           cancel := setCancellableTimeout(loop, refreshTime);
         };
         refresh := loop;
@@ -229,6 +233,9 @@ let%component main = (~assetsDir, ~refresh, ~setTitle, hooks) => {
       (),
     );
   <view layout={Layout.style(~width=500., ~height=500., ())}>
+    {
+      str(~layout=Layout.style(~position=Absolute, ~top=5., ~right=10., ()), refreshing ? "🕓" : "")
+    }
     <scrollView
       layout={Layout.style(
         ~flexGrow=1.,
