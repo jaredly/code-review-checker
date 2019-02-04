@@ -4,6 +4,8 @@ open Data;
 
 open Fluid.Native;
 
+module Api = Api;
+
 let str = Fluid.string;
 
 let gray = n => {r: n, g: n, b: n, a: 1.};
@@ -191,19 +193,35 @@ let makeTitle = revisions => {
   |> String.concat(" · ");
 };
 
-let%component main = (~assetsDir, ~setTitle, hooks) => {
+let setCancellableTimeout = (fn, tm) => {
+  let cancelled = ref(false);
+  setTimeout(() => {
+    if (!cancelled^) {
+      fn();
+    }
+  }, tm);
+  () => cancelled := true;
+};
+
+let refreshTime = 5 * 60 * 1000;
+let refreshTime = 5 * 1000;
+
+let%component main = (~assetsDir, ~refresh, ~setTitle, hooks) => {
   let%hook (data, setData) = Fluid.Hooks.useState(None);
   let%hook () =
     Fluid.Hooks.useEffect(
       () => {
+        let cancel = ref(() => ());
         let rec loop = () => {
+          cancel^();
           print_endline("Looping here");
           let%Lets.Async.Consume (person, users, revisions, repos) = fetchData();
           /* print_endline("Fetched"); */
           setTitle(Fluid.App.String(makeTitle(revisions)));
           setData(Some((person, users, revisions, repos)));
-          setTimeout(loop, 5 * 60 * 1000);
+          cancel := setCancellableTimeout(loop, refreshTime);
         };
+        refresh := loop;
         loop();
 
         () => ();
@@ -264,6 +282,8 @@ let run = assetsDir => {
 
     let statusBarItem = ref(None);
 
+    let refresh = ref(() => ());
+
     let win = Fluid.launchWindow(
       ~title="Phabrador",
       ~floating=true,
@@ -273,6 +293,7 @@ let run = assetsDir => {
       },
       <main
         assetsDir
+        refresh
         setTitle={title => switch (statusBarItem^) {
           | None => ()
           | Some(item) => Fluid.App.statusBarSetTitle(item, title)
@@ -286,6 +307,7 @@ let run = assetsDir => {
       ~isVariableLength=true,
       ~title=String("⌛ Connecting..."),
       ~onClick=pos => {
+        refresh^();
         Fluid.Window.showAtPos(win, pos)
       }
     ));

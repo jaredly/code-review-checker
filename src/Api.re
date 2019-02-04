@@ -5,6 +5,8 @@ external homeDirectory: unit => string = "phabrador_homeDirectory";
 external fetch: (~url: string, ~callback: FetchTracker.callbackId, ~headers: array((string, string))) => unit = "phabrador_fetch";
 let fetch = (~url, ~headers=[||], callback) => fetch(~url, ~callback=FetchTracker.track(callback), ~headers);
 
+let debug = ref(false);
+
 let getAuth = () => {
   let fpath = Filename.concat(homeDirectory(), ".arcrc");
   let json = Json.parse(Files.readFileExn(fpath));
@@ -29,7 +31,9 @@ let call = (endp, args) => {
   /* print_endline("calling " ++ url); */
   let%Lets.Async (body, status) = fetch(~url);
   /* STOPSHIP make this dev-only or something */
-  Files.writeFileExn("./.cache/" ++ endp ++ ".json", body);
+  if (debug^) {
+    Files.writeFileExn("./.cache/" ++ endp ++ ".json", body);
+  };
   let json = try (Json.parse(body)) {
     | Failure(f) => failwith("Unable to parse body: " ++ f)
   };
