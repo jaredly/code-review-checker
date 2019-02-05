@@ -25,26 +25,6 @@ module ImageCache = Fluid.Cache({
   }
 });
 
-/* let%component imageLoader = (~src, ~layout, hooks) => {
-  print_endline("imageLoader render " ++ src);
-  let data = ImageCache.fetch(src);
-
-  <image src=Preloaded(data) layout />
-};
-
-let%component loadingImage = (~src, ~layout, hooks) => {
-  let%hook suspended = Fluid.Hooks.useSuspenseHandler();
-
-  <view layout >
-  {
-  if (suspended != []) {
-    str("Preloading...")
-  } else {
-    <imageLoader src layout />
-  }
-}
-  </view>
-}; */
 
 let timePrinter = ODate.Unix.To.generate_printer("%I:%M%P")->Lets.Opt.force;
 let datePrinter = ODate.Unix.To.generate_printer("%b %E, %Y")->Lets.Opt.force;
@@ -73,7 +53,9 @@ let recentDate = seconds => {
   }
 };
 
-let%component revision = (~rev: Data.Revision.t, ~repos: Belt.Map.String.t(Repository.t), ~users: Belt.Map.String.t(Person.t), hooks) => {
+let%component revision = (~rev: Data.Revision.t,
+  ~snoozeItem,
+~repos: Belt.Map.String.t(Repository.t), ~users: Belt.Map.String.t(Person.t), hooks) => {
   let author = users->Belt.Map.String.get(rev.authorPHID);
   let repo = repos->Belt.Map.String.get(rev.repositoryPHID);
   <view layout={Layout.style(
@@ -103,16 +85,25 @@ let%component revision = (~rev: Data.Revision.t, ~repos: Belt.Map.String.t(Repos
           />
         <button
           layout={Layout.style(~left=-5., ())}
-        onPress={() => openUrl(Api.base ++ "/D" ++ string_of_int(rev.id))}
+          onPress={() => openUrl(Api.base ++ "/D" ++ string_of_int(rev.id))}
           title="Go"
         />
         </view>
       }}
     </view>
-    <view 
-    layout={Layout.style(~flexGrow=1., ~flexShrink=1., ())}
-    >
-      {str(~font={fontName: "Helvetica", fontSize: 18.}, rev.Revision.title)}
+    <view layout={Layout.style(~flexGrow=1., ~flexShrink=1., ())} >
+      <view layout={Layout.style(~flexDirection=Row, ())}>
+        {str(~layout=Layout.style(~flexGrow=1., ()), ~font={fontName: "Helvetica", fontSize: 18.}, rev.Revision.title)}
+        <button
+          onPress={() => {
+            let tomorrow = ODate.Unix.From.seconds_float(Unix.time())
+            -> ODate.Unix.beginning_of_the_day
+            -> ODate.Unix.advance_by_days(1);
+            snoozeItem(rev.phid, tomorrow->ODate.Unix.To.seconds_float)
+          }}
+          title="💤"
+        />
+      </view>
       <view layout={Layout.style(~flexDirection=Row, ())}>
         {str(recentDate(rev.dateModified))}
         <view layout={Layout.style(~flexGrow=1., ())} />
@@ -125,7 +116,9 @@ let%component revision = (~rev: Data.Revision.t, ~repos: Belt.Map.String.t(Repos
   </view>
 };
 
-let%component revisionList = (~revisions: list(Revision.t),
+let%component revisionList = (
+  ~snoozeItem,
+  ~revisions: list(Revision.t),
 ~repos: Belt.Map.String.t(Repository.t),
 ~users: Belt.Map.String.t(Person.t), ~title, hooks) => {
   <view layout={Layout.style(~alignItems=AlignStretch, ())}>
@@ -133,7 +126,7 @@ let%component revisionList = (~revisions: list(Revision.t),
       {str(title)}
     </view>
     {Fluid.Native.view(
-      ~children=revisions->Belt.List.map(rev => <revision repos users rev /> ),
+      ~children=revisions->Belt.List.map(rev => <revision snoozeItem repos users rev /> ),
       ()
     )}
   </view>
@@ -176,21 +169,34 @@ let fetchData = () => {
   Lets.Async.resolve((person, users, revisions, repos))
 };
 
+let mapRevisions = ({readyToLand, changesRequested, readyToReview, waiting}, m) => {
+  readyToLand: m(readyToLand),
+  changesRequested: m(changesRequested),
+  readyToReview: m(readyToReview),
+  waiting: m(waiting),
+};
+
 let makeTitle = revisions => {
-  [
+  let items = [
     (revisions.readyToLand, "✅"),
     (revisions.changesRequested, "❌"),
     (revisions.readyToReview, "🙏"),
     (revisions.waiting, "⌛"),
   ]
-  ->Belt.List.keepMap(((items, emoji)) =>
-      items == []
-        ? None
-        : Some(
-            emoji ++ " " ++ string_of_int(List.length(items)),
-          )
-    )
-  |> String.concat(" · ");
+  ->Belt.List.keepMap(((items, emoji)) => {
+    let items = items->Belt.List.keep(r => !r.snoozed);
+    items === []
+      ? None
+      : Some(
+          emoji ++ " " ++ string_of_int(List.length(items)),
+        )
+  });
+
+  if (items === []) {
+    "🐶"
+  } else {
+    items |> String.concat(" · ");
+  }
 };
 
 let setCancellableTimeout = (fn, tm) => {
@@ -206,9 +212,24 @@ let setCancellableTimeout = (fn, tm) => {
 let refreshTime = 5 * 60 * 1000;
 /* let refreshTime = 5 * 1000; */
 
+let updateSnoozed = revisions =>  {
+  let now = Unix.time();
+  revisions->mapRevisions(Belt.List.map(_, Config.setSnoozed(Config.current^, now)));
+};
+
 let%component main = (~assetsDir, ~refresh, ~setTitle, hooks) => {
   let%hook (data, setData) = Fluid.Hooks.useState(None);
   let%hook (refreshing, setRefreshing) = Fluid.Hooks.useState(false);
+
+  let snoozeItem = (phid, until) => {
+    print_endline("Snoozing " ++ phid);
+    switch (data) {
+      | None => ()
+      | Some((p, u, r, re)) =>
+        Config.addSnoozed(phid, until);
+        setData(Some((p, u, updateSnoozed(r), re)))
+    };
+  };
 
   let%hook () =
     Fluid.Hooks.useEffect(
@@ -216,14 +237,18 @@ let%component main = (~assetsDir, ~refresh, ~setTitle, hooks) => {
         let cancel = ref(() => ());
         let rec loop = () => {
           cancel^();
-          print_endline("Looping here");
+          /* print_endline("Looping here"); */
           setRefreshing(true);
           let%Lets.Async.Consume (person, users, revisions, repos) = fetchData();
-          print_endline("Fetched");
+          /* print_endline("Fetched"); */
           setTitle(Fluid.App.String(makeTitle(revisions)));
-          setData(Some((person, users, revisions, repos)));
+          /* print_endline("a"); */
+          setData(Some((person, users, updateSnoozed(revisions), repos)));
+          /* print_endline("b"); */
           setRefreshing(false);
+          /* print_endline("c"); */
           cancel := setCancellableTimeout(loop, refreshTime);
+          /* print_endline("Updated"); */
         };
         refresh := loop;
         loop();
@@ -232,6 +257,7 @@ let%component main = (~assetsDir, ~refresh, ~setTitle, hooks) => {
       },
       (),
     );
+
   <view layout={Layout.style(~width=500., ~height=500., ())}>
     {
       str(~layout=Layout.style(~position=Absolute, ~top=5., ~right=10., ()), refreshing ? "🕓" : "")
@@ -254,20 +280,26 @@ let%component main = (~assetsDir, ~refresh, ~setTitle, hooks) => {
              repos
            )) =>
            <view layout={Layout.style(~alignItems=AlignStretch, ())}>
-             <revisionList title="✅ Ready to land" users repos revisions=readyToLand />
+             <revisionList title="✅ Ready to land" 
+              snoozeItem
+              users repos revisions=readyToLand />
              <revisionList
                title="❌ Ready to update"
                repos
                users
+               snoozeItem
                revisions=changesRequested
              />
              <revisionList
                title="🙏 Ready to review"
                repos
                users
+               snoozeItem
                revisions=readyToReview
              />
-             <revisionList title="⌛ Waiting on review" users repos revisions=waiting />
+             <revisionList title="⌛ Waiting on review"
+              snoozeItem
+              users repos revisions=waiting />
            </view>
          }}
       </view>

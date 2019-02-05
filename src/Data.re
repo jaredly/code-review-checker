@@ -42,6 +42,7 @@ module Revision = {
     summary: string,
     dateCreated: int,
     dateModified: int,
+    snoozed: bool,
     status: string,
     color: string,
   };
@@ -63,6 +64,6 @@ module Revision = {
     let%F status = statusObj |> Json.get("value") |?> Json.string;
     let%F color = statusObj |> Json.get("color.ansi") |?> Json.string;
 
-    Some({title, phid, id, repositoryPHID, authorPHID, diffPHID, summary, dateModified, dateCreated, status, color});
+    Some({title, phid, id, snoozed: false, repositoryPHID, authorPHID, diffPHID, summary, dateModified, dateCreated, status, color});
   };
 };
