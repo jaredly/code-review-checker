@@ -73,7 +73,7 @@ let%component revision = (~rev: Data.Revision.t,
             snoozeItem(rev.phid, None)
           } else {
             let tomorrow = ODate.Unix.From.seconds_float(Unix.time())
-            -> ODate.Unix.beginning_of_the_day
+            -> ODate.Unix.beginning_of_the_day(~tz=ODate.Local, _)
             -> ODate.Unix.advance_by_days(1);
             snoozeItem(rev.phid, Some(tomorrow->ODate.Unix.To.seconds_float))
           }

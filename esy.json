@@ -2,7 +2,10 @@
   "name": "phabrador",
   "version": "1.0",
   "esy": {
-    "build": "dune build -p #{self.name}"
+    "build": "dune build -p #{self.name}",
+    "sandboxEnv": {
+      // "FLUID_DEBUG": "true"
+    }
   },
   "scripts": {
     "start": "dune exec PhabradorDev",

@@ -48,11 +48,13 @@ let update = fn => {
 };
 
 let toggleSnoozed = (phid: string, until: option(float)) => {
+  let now = Unix.time();
   update(({snoozed} as config) => 
   {...config, snoozed: switch until {
     | None => snoozed->Belt.Map.String.remove(phid)
     | Some(until) => snoozed->Belt.Map.String.set(phid, until)
-  }}
+  } |> Belt.Map.String.keep(_, (k, v) => v > now)
+  }
   )
 };
 
