@@ -211,7 +211,6 @@ let makeTitle = revisions => {
     (revisions.readyToLand, "✅"),
     (revisions.changesRequested, "❌"),
     (revisions.readyToReview, "🙏"),
-    (revisions.waiting, "⌛"),
   ]
   ->Belt.List.keepMap(((items, emoji)) => {
     let items = items->Belt.List.keep(r => !r.snoozed);
@@ -379,7 +378,7 @@ let run = assetsDir => {
 
     statusBarItem := Some(Fluid.App.statusBarItem(
       ~isVariableLength=true,
-      ~title=String("⌛ Connecting..."),
+      ~title=String("⌛"),
       ~onClick=pos => {
         refresh^();
         Fluid.Window.showAtPos(win, pos)
