@@ -64,6 +64,10 @@ let whoAmI = cb => {
 let getRevisions = (me) => {
   let%Lets.Async result = call("differential.revision.search", [
     ("queryKey", "active"),
+    /* ("queryKey", "all"),
+    ("constraints[statuses][0]", "needs-review"),
+    ("constraints[statuses][0]", "needs-revision"),
+    ("constraints[statuses][0]", "accepted"), */
     ("constraints[responsiblePHIDs][0]", me.Data.Person.phid),
   ]);
   open Json.Infix;

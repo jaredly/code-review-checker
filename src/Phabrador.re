@@ -151,42 +151,19 @@ let%component revisionList = (
   ~revisions: list(Revision.t),
 ~repos: Belt.Map.String.t(Repository.t),
 ~users: Belt.Map.String.t(Person.t), ~title, hooks) => {
-  <view layout={Layout.style(~alignItems=AlignStretch, ())}>
-    <view backgroundColor=gray(0.9) layout={Layout.style(~paddingHorizontal=8., ~paddingVertical=4., ())}>
-      {str(title)}
+  if (revisions == []) {
+    Fluid.Null
+  } else {
+    <view layout={Layout.style(~alignItems=AlignStretch, ())}>
+      <view backgroundColor=gray(0.9) layout={Layout.style(~paddingHorizontal=8., ~paddingVertical=4., ())}>
+        {str(title)}
+      </view>
+      {Fluid.Native.view(
+        ~children=revisions->Belt.List.map(rev => <revision snoozeItem repos users rev /> ),
+        ()
+      )}
     </view>
-    {Fluid.Native.view(
-      ~children=revisions->Belt.List.map(rev => <revision snoozeItem repos users rev /> ),
-      ()
-    )}
-  </view>
-};
-
-type revisions = {
-  readyToLand: list(Data.Revision.t),
-  waiting: list(Data.Revision.t),
-  readyToReview: list(Data.Revision.t),
-  changesRequested: list(Data.Revision.t),
-};
-
-let organizeRevisions = (person, revisions: list(Data.Revision.t)) => {
-  let readyToLand =
-    revisions->Belt.List.keep(r =>
-      r.authorPHID == person.Person.phid && r.status == "accepted"
-    );
-  let waiting =
-    revisions->Belt.List.keep(r =>
-      r.authorPHID == person.Person.phid && r.status == "needs-review"
-    );
-  let readyToReview =
-    revisions->Belt.List.keep(r =>
-      r.authorPHID != person.Person.phid && r.status == "needs-review"
-    );
-  let changesRequested =
-    revisions->Belt.List.keep(r =>
-      r.authorPHID == person.Person.phid && r.status == "needs-revision"
-    );
-  {readyToLand, readyToReview, waiting, changesRequested};
+  }
 };
 
 let fetchData = () => {
@@ -195,22 +172,15 @@ let fetchData = () => {
   let%C revisions = Api.getRevisions(person);
   let%C users = Api.getUsers(revisions->Belt.List.map(r => r.Revision.authorPHID));
   let%C repos = Api.getRepositories(revisions->Belt.List.map(r => r.repositoryPHID));
-  let revisions = organizeRevisions(person, revisions);
-  Lets.Async.resolve((person, users, revisions, repos))
+  let revisions = Revision.organize(person, revisions);
+  Lets.Async.resolve((person, users, revisions, repos));
 };
 
-let mapRevisions = ({readyToLand, changesRequested, readyToReview, waiting}, m) => {
-  readyToLand: m(readyToLand),
-  changesRequested: m(changesRequested),
-  readyToReview: m(readyToReview),
-  waiting: m(waiting),
-};
-
-let makeTitle = revisions => {
+let makeTitle = (revisions: Revision.all) => {
   let items = [
-    (revisions.readyToLand, "✅"),
-    (revisions.changesRequested, "❌"),
-    (revisions.readyToReview, "🙏"),
+    (revisions.mine.accepted, "✅"),
+    (revisions.mine.needsRevision, "❌"),
+    (revisions.theirs.needsReview, "🙏"),
   ]
   ->Belt.List.keepMap(((items, emoji)) => {
     let items = items->Belt.List.keep(r => !r.snoozed);
@@ -243,7 +213,7 @@ let refreshTime = 5 * 60 * 1000;
 
 let updateSnoozed = revisions =>  {
   let now = Unix.time();
-  revisions->mapRevisions(Belt.List.map(_, Config.setSnoozed(Config.current^, now)));
+  revisions->Revision.map(Belt.List.map(_, Config.setSnoozed(Config.current^, now)));
 };
 
 Printexc.record_backtrace(true);
@@ -310,30 +280,39 @@ let%component main = (~assetsDir, ~refresh, ~setTitle, hooks) => {
          | Some((
              person,
              users,
-             {readyToLand, readyToReview, waiting, changesRequested},
+             revisions,
              repos
            )) =>
            <view layout={Layout.style(~alignItems=AlignStretch, ())}>
              <revisionList title="✅ Ready to land" 
               snoozeItem
-              users repos revisions=readyToLand />
+              users repos revisions={revisions.mine.accepted} />
              <revisionList
                title="❌ Ready to update"
                repos
                users
                snoozeItem
-               revisions=changesRequested
+               revisions={revisions.mine.needsRevision}
              />
              <revisionList
                title="🙏 Ready to review"
                repos
                users
                snoozeItem
-               revisions=readyToReview
+               revisions={revisions.theirs.needsReview}
              />
              <revisionList title="⌛ Waiting on review"
-              snoozeItem
-              users repos revisions=waiting />
+                snoozeItem
+                users repos revisions={revisions.mine.needsReview}
+              />
+              <revisionList title="⌛❌ Waiting for them to change"
+                snoozeItem
+                users repos revisions={revisions.theirs.needsRevision}
+              />
+              <revisionList title="⌛✅ Waiting for them to land"
+                snoozeItem
+                users repos revisions={revisions.theirs.accepted}
+              />
            </view>
          }}
       </view>

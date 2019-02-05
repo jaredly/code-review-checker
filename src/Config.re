@@ -62,7 +62,7 @@ let setSnoozed = (config, now, item) => {
   ...item,
   Data.Revision.snoozed: switch (Belt.Map.String.get(config.snoozed, item.Data.Revision.phid)) {
     | None => 
-    print_endline(item.phid ++ " not snoozed");
+    /* print_endline(item.phid ++ " not snoozed"); */
     false
     | Some(t) =>
     Printf.printf("%s times %f vs now %f\n", item.phid, t, now);

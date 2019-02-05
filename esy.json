@@ -8,7 +8,7 @@
     }
   },
   "scripts": {
-    "start": "dune exec PhabradorDev",
+    "start": "esy x PhabradorDev",
     "pkg": "sh -c 'cd bundler && ./bundle.sh'"
   },
   "dependencies": {

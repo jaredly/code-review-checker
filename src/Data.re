@@ -66,4 +66,46 @@ module Revision = {
 
     Some({title, phid, id, snoozed: false, repositoryPHID, authorPHID, diffPHID, summary, dateModified, dateCreated, status, color});
   };
+
+  type groups = {
+    accepted: list(t),
+    needsReview: list(t),
+    needsRevision: list(t),
+    changesPlanned: list(t),
+  };
+  type all = {
+    mine: groups,
+    theirs: groups,
+  };
+  let checkStatus = (status, r) => r.status == status;
+  let makeGroups = (revisions: list(t)) => {
+    accepted: revisions->Belt.List.keep(checkStatus("accepted")),
+    needsReview: revisions->Belt.List.keep(checkStatus("needs-review")),
+    needsRevision: revisions->Belt.List.keep(checkStatus("needs-revision")),
+    changesPlanned: revisions->Belt.List.keep(checkStatus("changes-planned")),
+  };
+  let appendGroups = (a, b) => {
+    accepted: List.append(a.accepted, b.accepted),
+    needsReview: List.append(a.accepted, b.accepted),
+    needsRevision: List.append(a.accepted, b.accepted),
+    changesPlanned: List.append(a.accepted, b.accepted),
+  };
+  let append = (a, b) => {
+    mine: appendGroups(a.mine, b.mine),
+    theirs: appendGroups(a.theirs, b.theirs),
+  };
+  let organize = (person: Person.t, revisions: list(t)) => {
+    mine: makeGroups(revisions->Belt.List.keep(r => r.authorPHID == person.phid)),
+    theirs: makeGroups(revisions->Belt.List.keep(r => r.authorPHID != person.phid))
+  };
+  let mapGroups = ({accepted, needsReview, needsRevision, changesPlanned}, m) => {
+    accepted: m(accepted),
+    needsReview: m(needsReview),
+    needsRevision: m(needsRevision),
+    changesPlanned: m(changesPlanned),
+  };
+  let map = ({mine, theirs}, m) => {
+    mine: mapGroups(mine, m),
+    theirs: mapGroups(theirs, m),
+  };
 };
