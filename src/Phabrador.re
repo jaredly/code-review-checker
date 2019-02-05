@@ -58,6 +58,31 @@ let%component revision = (~rev: Data.Revision.t,
 ~repos: Belt.Map.String.t(Repository.t), ~users: Belt.Map.String.t(Person.t), hooks) => {
   let author = users->Belt.Map.String.get(rev.authorPHID);
   let repo = repos->Belt.Map.String.get(rev.repositoryPHID);
+  if (rev.snoozed) {
+    <view layout={Layout.style(
+      ~paddingVertical=8.,
+      ~marginHorizontal=8.,
+      ~alignSelf=AlignStretch,
+      ~flexDirection=Row,
+      ())}
+    >
+      {str(~layout=Layout.style(~flexGrow=1., ()), ~font={fontName: "Helvetica", fontSize: 12.}, rev.Revision.title)}
+      <button
+        onPress={() => {
+          if (rev.snoozed) {
+            snoozeItem(rev.phid, None)
+          } else {
+            let tomorrow = ODate.Unix.From.seconds_float(Unix.time())
+            -> ODate.Unix.beginning_of_the_day
+            -> ODate.Unix.advance_by_days(1);
+            snoozeItem(rev.phid, Some(tomorrow->ODate.Unix.To.seconds_float))
+          }
+        }}
+        title={"Unsnooze"}
+      />
+    </view>
+  } else {
+
   <view layout={Layout.style(
     ~paddingVertical=8.,
     ~marginHorizontal=8.,
@@ -96,12 +121,16 @@ let%component revision = (~rev: Data.Revision.t,
         {str(~layout=Layout.style(~flexGrow=1., ()), ~font={fontName: "Helvetica", fontSize: 18.}, rev.Revision.title)}
         <button
           onPress={() => {
-            let tomorrow = ODate.Unix.From.seconds_float(Unix.time())
-            -> ODate.Unix.beginning_of_the_day
-            -> ODate.Unix.advance_by_days(1);
-            snoozeItem(rev.phid, tomorrow->ODate.Unix.To.seconds_float)
+            if (rev.snoozed) {
+              snoozeItem(rev.phid, None)
+            } else {
+              let tomorrow = ODate.Unix.From.seconds_float(Unix.time())
+              -> ODate.Unix.beginning_of_the_day
+              -> ODate.Unix.advance_by_days(1);
+              snoozeItem(rev.phid, Some(tomorrow->ODate.Unix.To.seconds_float))
+            }
           }}
-          title="💤"
+          title={rev.snoozed ? "❗" : "💤"}
         />
       </view>
       <view layout={Layout.style(~flexDirection=Row, ())}>
@@ -114,6 +143,7 @@ let%component revision = (~rev: Data.Revision.t,
       </view>
     </view>
   </view>
+  }
 };
 
 let%component revisionList = (
@@ -217,6 +247,8 @@ let updateSnoozed = revisions =>  {
   revisions->mapRevisions(Belt.List.map(_, Config.setSnoozed(Config.current^, now)));
 };
 
+Printexc.record_backtrace(true);
+
 let%component main = (~assetsDir, ~refresh, ~setTitle, hooks) => {
   let%hook (data, setData) = Fluid.Hooks.useState(None);
   let%hook (refreshing, setRefreshing) = Fluid.Hooks.useState(false);
@@ -226,8 +258,10 @@ let%component main = (~assetsDir, ~refresh, ~setTitle, hooks) => {
     switch (data) {
       | None => ()
       | Some((p, u, r, re)) =>
-        Config.addSnoozed(phid, until);
-        setData(Some((p, u, updateSnoozed(r), re)))
+        Config.toggleSnoozed(phid, until);
+        let revisions = updateSnoozed(r);
+        setTitle(Fluid.App.String(makeTitle(revisions)));
+        setData(Some((p, u, revisions, re)))
     };
   };
 
@@ -240,10 +274,11 @@ let%component main = (~assetsDir, ~refresh, ~setTitle, hooks) => {
           /* print_endline("Looping here"); */
           setRefreshing(true);
           let%Lets.Async.Consume (person, users, revisions, repos) = fetchData();
+          let revisions = updateSnoozed(revisions);
           /* print_endline("Fetched"); */
           setTitle(Fluid.App.String(makeTitle(revisions)));
           /* print_endline("a"); */
-          setData(Some((person, users, updateSnoozed(revisions), repos)));
+          setData(Some((person, users, revisions, repos)));
           /* print_endline("b"); */
           setRefreshing(false);
           /* print_endline("c"); */
