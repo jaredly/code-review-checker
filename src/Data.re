@@ -1,7 +1,11 @@
 
 module Person = {
-  type t = {userName: string, realName: string, phid: string, image: string,
-  loadedImage: option(FluidMac.Fluid.NativeInterface.image)
+  type t = {
+    userName: string,
+    realName: string,
+    phid: string,
+    image: string,
+    loadedImage: option(FluidMac.Fluid.NativeInterface.image),
   };
   let parse = result => {
     module F = Lets.Opt;
@@ -64,7 +68,20 @@ module Revision = {
     let%F status = statusObj |> Json.get("value") |?> Json.string;
     let%F color = statusObj |> Json.get("color.ansi") |?> Json.string;
 
-    Some({title, phid, id, snoozed: false, repositoryPHID, authorPHID, diffPHID, summary, dateModified, dateCreated, status, color});
+    Some({
+      title,
+      phid,
+      id,
+      snoozed: false,
+      repositoryPHID,
+      authorPHID,
+      diffPHID,
+      summary,
+      dateModified,
+      dateCreated,
+      status,
+      color,
+    });
   };
 
   type groups = {
@@ -77,6 +94,7 @@ module Revision = {
     mine: groups,
     theirs: groups,
   };
+
   let checkStatus = (status, r) => r.status == status;
   let makeGroups = (revisions: list(t)) => {
     accepted: revisions->Belt.List.keep(checkStatus("accepted")),

@@ -118,7 +118,7 @@ let%component revision = (~rev: Data.Revision.t,
     </view>
     <view layout={Layout.style(~flexGrow=1., ~flexShrink=1., ())} >
       <view layout={Layout.style(~flexDirection=Row, ())}>
-        {str(~layout=Layout.style(~flexGrow=1., ()), ~font={fontName: "Helvetica", fontSize: 18.}, rev.Revision.title)}
+        {str(~layout=Layout.style(~flexGrow=1., ~flexShrink=1., ()), ~font={fontName: "Helvetica", fontSize: 18.}, rev.Revision.title)}
         <button
           onPress={() => {
             if (rev.snoozed) {
@@ -159,7 +159,7 @@ let%component revisionList = (
         {str(title)}
       </view>
       {Fluid.Native.view(
-        ~children=revisions->Belt.List.map(rev => <revision snoozeItem repos users rev /> ),
+        ~children=revisions->Belt.List.sort((a, b) => b.dateModified - a.dateModified)->Belt.List.map(rev => <revision snoozeItem repos users rev /> ),
         ()
       )}
     </view>
@@ -265,7 +265,7 @@ let%component main = (~assetsDir, ~refresh, ~setTitle, hooks) => {
   <view
     layout={Layout.style(
       ~width=500.,
-      ~maxHeight=500.,
+      ~maxHeight=800.,
       /* ~height=500., */
       ()
     )}
@@ -281,7 +281,7 @@ let%component main = (~assetsDir, ~refresh, ~setTitle, hooks) => {
         )) =>
     <scrollView
       layout={Layout.style(
-        ~flexGrow=1.,
+        /* ~flexGrow=1., */
         ~alignItems=AlignStretch,
         ~alignSelf=AlignStretch,
         ~overflow=Scroll,
