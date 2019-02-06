@@ -262,10 +262,23 @@ let%component main = (~assetsDir, ~refresh, ~setTitle, hooks) => {
       (),
     );
 
-  <view layout={Layout.style(~width=500., ~height=500., ())}>
-    {
-      str(~layout=Layout.style(~position=Absolute, ~top=5., ~right=10., ()), refreshing ? "🕓" : "")
-    }
+  <view
+    layout={Layout.style(
+      ~width=500.,
+      ~maxHeight=500.,
+      /* ~height=500., */
+      ()
+    )}
+  >
+    {str(~layout=Layout.style(~position=Absolute, ~top=5., ~right=10., ()), refreshing ? "🕓" : "")}
+    {switch (data) {
+      | None => str("⌛ loading...")
+      | Some((
+          person,
+          users,
+          revisions,
+          repos
+        )) =>
     <scrollView
       layout={Layout.style(
         ~flexGrow=1.,
@@ -273,50 +286,43 @@ let%component main = (~assetsDir, ~refresh, ~setTitle, hooks) => {
         ~alignSelf=AlignStretch,
         ~overflow=Scroll,
         (),
-      )}>
+      )}
+    >
       <view layout={Layout.style(~alignItems=AlignStretch, ())}>
-        {switch (data) {
-         | None => str("⌛ loading...")
-         | Some((
-             person,
-             users,
-             revisions,
-             repos
-           )) =>
-           <view layout={Layout.style(~alignItems=AlignStretch, ())}>
-             <revisionList title="✅ Ready to land" 
-              snoozeItem
-              users repos revisions={revisions.mine.accepted} />
-             <revisionList
-               title="❌ Ready to update"
-               repos
-               users
-               snoozeItem
-               revisions={revisions.mine.needsRevision}
-             />
-             <revisionList
-               title="🙏 Ready to review"
-               repos
-               users
-               snoozeItem
-               revisions={revisions.theirs.needsReview}
-             />
-             <revisionList title="⌛ Waiting on review"
-                snoozeItem
-                users repos revisions={revisions.mine.needsReview}
-              />
-              <revisionList title="⌛❌ Waiting for them to change"
-                snoozeItem
-                users repos revisions={revisions.theirs.needsRevision}
-              />
-              <revisionList title="⌛✅ Waiting for them to land"
-                snoozeItem
-                users repos revisions={revisions.theirs.accepted}
-              />
-           </view>
-         }}
+        <view layout={Layout.style(~alignItems=AlignStretch, ())}>
+          <revisionList title="✅ Ready to land" 
+          snoozeItem
+          users repos revisions={revisions.mine.accepted} />
+          <revisionList
+            title="❌ Ready to update"
+            repos
+            users
+            snoozeItem
+            revisions={revisions.mine.needsRevision}
+          />
+          <revisionList
+            title="🙏 Ready to review"
+            repos
+            users
+            snoozeItem
+            revisions={revisions.theirs.needsReview}
+          />
+          <revisionList title="⌛ Waiting on review"
+            snoozeItem
+            users repos revisions={revisions.mine.needsReview}
+          />
+          <revisionList title="⌛❌ Waiting for them to change"
+            snoozeItem
+            users repos revisions={revisions.theirs.needsRevision}
+          />
+          <revisionList title="⌛✅ Waiting for them to land"
+            snoozeItem
+            users repos revisions={revisions.theirs.accepted}
+          />
+        </view>
       </view>
     </scrollView>
+         }}
   </view>;
 };
 
@@ -340,6 +346,9 @@ let run = assetsDir => {
       ~title="Phabrador",
       ~floating=true,
       ~hidden=true,
+      ~onResize=({width, height}, window) => {
+        window->Fluid.Window.resize({x: width, y: height})
+      },
       ~onBlur=win => {
         Fluid.Window.hide(win);
       },
