@@ -26,7 +26,7 @@ let (hostname, token, base) = getAuth();
 
 let kwargs = items => String.concat("&", items->Belt.List.map(((k, v)) => k ++ "=" ++ EncodeURIComponent.encode(v)));
 
-let call = (endp, args) => {
+let call = (endp, args): Lets.Async.Result.t(Json.t, string) => {
   let url = hostname ++ endp ++ "?" ++ kwargs([("api.token", token), ...args]);
   /* print_endline("calling " ++ url); */
   let%Lets.Async (body, status) = fetch(~url);
@@ -34,11 +34,15 @@ let call = (endp, args) => {
   if (debug^) {
     Files.writeFileExn("./.cache/" ++ endp ++ ".json", body);
   };
-  let json = try (Json.parse(body)) {
-    | Failure(f) => failwith("Unable to parse body: " ++ f)
+  switch (Json.parse(body)) {
+    | exception Failure(f) => Lets.Async.Result.reject(f)
+    | json =>
+    let result = json |> Json.get("result");
+    switch result {
+     | Some(result) => Lets.Async.Result.resolve(result);
+     | None => Lets.Async.Result.reject("API error")
+    }
   };
-  let%Lets.Opt.Force result = json |> Json.get("result");
-  Lets.Async.resolve(result);
 };
 
 let wait = (time, cb) => FluidMac.Fluid.App.setTimeout(cb, time);
@@ -50,19 +54,19 @@ let callOffline = (endp, args) => {
   };
   let%Lets.Opt.Force result = json |> Json.get("result");
   let%Lets.Async () = wait(10);
-  Lets.Async.resolve(result);
+  Lets.Async.Result.resolve(result);
 };
 
 /* let call = callOffline; */
 
 let whoAmI = cb => {
-  let%Lets.Async result = call("user.whoami", []);
+  let%Lets.Async.Result result = call("user.whoami", []);
   let%Lets.Opt.Force person = Data.Person.parse(result);
-  Lets.Async.resolve(person)
+  Lets.Async.Result.resolve(person)
 }(cb);
 
 let getRevisions = (me) => {
-  let%Lets.Async result = call("differential.revision.search", [
+  let%Lets.Async.Result result = call("differential.revision.search", [
     ("queryKey", "active"),
     /* ("queryKey", "all"),
     ("constraints[statuses][0]", "needs-review"),
@@ -72,11 +76,11 @@ let getRevisions = (me) => {
   ]);
   open Json.Infix;
   let%Lets.Opt.Force data = result |> Json.get("data") |?> Json.array;
-  Lets.Async.resolve(data->Belt.List.keepMap(Data.Revision.parse))
+  Lets.Async.Result.resolve(data->Belt.List.keepMap(Data.Revision.parse))
 };
 
 let getUsers = (phids) => {
-  let%Lets.Async result = call("user.query", phids->Belt.List.mapWithIndex((i, phid) => (
+  let%Lets.Async.Result result = call("user.query", phids->Belt.List.mapWithIndex((i, phid) => (
     ("phids[" ++ string_of_int(i) ++ "]", phid)
   )));
   let%Lets.Opt.Force data = result |> Json.array;
@@ -89,19 +93,19 @@ let getUsers = (phids) => {
       })
     );
   let%Lets.Async people = Lets.Async.all(people);
-  Lets.Async.resolve(people->Belt.List.reduce(Belt.Map.String.empty, (map, person) => {
+  Lets.Async.Result.resolve(people->Belt.List.reduce(Belt.Map.String.empty, (map, person) => {
     Belt.Map.String.set(map, person.phid, person)
   }))
 };
 
 let getRepositories = (phids) => {
-  let%Lets.Async result = call("diffusion.repository.search", phids->Belt.List.mapWithIndex((i, phid) => (
+  let%Lets.Async.Result result = call("diffusion.repository.search", phids->Belt.List.mapWithIndex((i, phid) => (
     ("constraints[phids][" ++ string_of_int(i) ++ "]", phid)
   )));
   open Json.Infix;
   let%Lets.Opt.Force data = result |> Json.get("data") |?> Json.array;
   let repos = data->Belt.List.keepMap(Data.Repository.parse);
-  Lets.Async.resolve(repos->Belt.List.reduce(Belt.Map.String.empty, (map, repo) => {
+  Lets.Async.Result.resolve(repos->Belt.List.reduce(Belt.Map.String.empty, (map, repo) => {
     Belt.Map.String.set(map, repo.phid, repo)
   }))
 };

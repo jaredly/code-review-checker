@@ -167,13 +167,13 @@ let%component revisionList = (
 };
 
 let fetchData = () => {
-  module C = Lets.Async;
+  module C = Lets.Async.Result;
   let%C person = Api.whoAmI;
   let%C revisions = Api.getRevisions(person);
   let%C users = Api.getUsers(revisions->Belt.List.map(r => r.Revision.authorPHID));
   let%C repos = Api.getRepositories(revisions->Belt.List.map(r => r.repositoryPHID));
   let revisions = Revision.organize(person, revisions);
-  Lets.Async.resolve((person, users, revisions, repos));
+  C.resolve((person, users, revisions, repos));
 };
 
 let makeTitle = (revisions: Revision.all) => {
@@ -233,6 +233,7 @@ let%component main = (~assetsDir, ~refresh, ~setTitle, hooks) => {
         setData(Some((p, u, revisions, re)))
     };
   };
+  /* print_endline("render"); */
 
   let%hook () =
     Fluid.Hooks.useEffect(
@@ -242,12 +243,18 @@ let%component main = (~assetsDir, ~refresh, ~setTitle, hooks) => {
           cancel^();
           /* print_endline("Looping here"); */
           setRefreshing(true);
-          let%Lets.Async.Consume (person, users, revisions, repos) = fetchData();
-          let revisions = updateSnoozed(revisions);
+          let%Lets.Async.Consume result = fetchData();
           /* print_endline("Fetched"); */
-          setTitle(Fluid.App.String(makeTitle(revisions)));
-          /* print_endline("a"); */
-          setData(Some((person, users, revisions, repos)));
+          switch result {
+            | Error(error) =>
+              setTitle(String("⌛"));
+              setData(None);
+            | Ok((person, users, revisions, repos)) =>
+              let revisions = updateSnoozed(revisions);
+              setTitle(Fluid.App.String(makeTitle(revisions)));
+              /* print_endline("a"); */
+              setData(Some((person, users, revisions, repos)));
+          };
           /* print_endline("b"); */
           setRefreshing(false);
           /* print_endline("c"); */

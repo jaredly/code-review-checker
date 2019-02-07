@@ -1,8 +1,8 @@
 module Async = {
   type t('a) = ('a => unit) => unit;
   /* let try_ = (promise, continuation) => Js.Promise.catch(continuation, promise); */
-  let let_ = (promise, continuation) => fin => promise(v => continuation(v, fin));
-  let resolve = (data, fn) => fn(data);
+  let let_: (t('a), 'a => t('b)) => t('b) = (promise, continuation) => fin => promise(v => continuation(v, fin));
+  let resolve: 'a => t('a) = (data, fn) => fn(data);
   let all = (items, fn) => {
     let items = items->Belt.List.toArray;
     let results = items->Belt.Array.map((_) => None);
@@ -18,6 +18,33 @@ module Async = {
   };
   /* let reject = Js.Promise.reject; */
   /* let map = (promise, fn) => Js.Promise.then_(v => Js.Promise.resolve(fn(v)), promise); */
+
+  module Result = {
+    type single('a) = t('a);
+    type t('a, 'b) = (Belt.Result.t('a, 'b) => unit) => unit;
+    let resolve: 'a => t('a, 'b) = (data, fn) => fn(Belt.Result.Ok(data));
+    let reject: 'b => t('a, 'b) = (data, fn) => fn(Belt.Result.Error(data));
+    let let_: (t('a, 'b), 'a => t('c, 'b)) => t('c, 'b) =
+      (promise, continuation, fin) =>
+        promise(v =>
+          switch (v) {
+          | Error(error) => fin(Error(error))
+          | Ok(value) => continuation(value, fin)
+          }
+        );
+    let try_: (t('a, 'b), 'b => t('a, 'c)) => t('a, 'c) = (promise, continuation, fin) =>
+      promise(v => switch v {
+        | Error(e) => continuation(e, fin)
+        | Ok(value) => fin(Ok(value))
+      });
+    module Handle = {
+      let try_: (t('a, 'b), 'b => single('a)) => single('a) = (promise, continuation, fin) =>
+        promise(v => switch v {
+          | Error(e) => continuation(e, fin)
+          | Ok(value) => fin(value)
+        });
+    };
+  };
 
   module Wrap = {
     let let_ = (promise, cont) => fin => promise(v => fin(cont(v)));
