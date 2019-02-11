@@ -57,8 +57,6 @@ let callOffline = (endp, args) => {
   Lets.Async.Result.resolve(result);
 };
 
-/* let call = callOffline; */
-
 let whoAmI = cb => {
   let%Lets.Async.Result result = call("user.whoami", []);
   let%Lets.Opt.Force person = Data.Person.parse(result);
@@ -68,10 +66,6 @@ let whoAmI = cb => {
 let getRevisions = (me) => {
   let%Lets.Async.Result result = call("differential.revision.search", [
     ("queryKey", "active"),
-    /* ("queryKey", "all"),
-    ("constraints[statuses][0]", "needs-review"),
-    ("constraints[statuses][0]", "needs-revision"),
-    ("constraints[statuses][0]", "accepted"), */
     ("constraints[responsiblePHIDs][0]", me.Data.Person.phid),
   ]);
   open Json.Infix;
@@ -109,4 +103,16 @@ let getRepositories = (phids) => {
     Belt.Map.String.set(map, repo.phid, repo)
   }))
 };
+
+/* let getDiffs = (phids) => {
+  let%Lets.Async.Result result = call("differential.diff.search", phids->Belt.List.mapWithIndex((i, phid) => (
+    ("constraints[phids][" ++ string_of_int(i) ++ "]", phid)
+  )));
+  open Json.Infix;
+  let%Lets.Opt.Force data = result |> Json.get("data") |?> Json.array;
+  let repos = data->Belt.List.keepMap(Data.Repository.parse);
+  Lets.Async.Result.resolve(repos->Belt.List.reduce(Belt.Map.String.empty, (map, repo) => {
+    Belt.Map.String.set(map, repo.phid, repo)
+  }))
+}; */
 

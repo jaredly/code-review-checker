@@ -35,6 +35,19 @@ module Repository = {
   };
 };
 
+module Diff = {
+  type t = {
+    id: int,
+    phid: string,
+    revisionPHID: string,
+    authorPHID: string,
+    repositoryPHID: string,
+    branch: option(string),
+    dateCreated: int,
+    dateModified: int,
+  };
+};
+
 module Revision = {
   type t = {
     title: string,
