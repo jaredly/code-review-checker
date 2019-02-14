@@ -12,7 +12,7 @@ let gray = n => {r: n, g: n, b: n, a: 1.};
 
 external openUrl: string => unit = "phabrador_openUrl";
 
-module TimeoutTracker = FluidMac.Tracker({type arg = unit; let name = "phabrador_timeout_cb"; let once = true;});
+module TimeoutTracker = FluidMac.Tracker({type arg = unit; let name = "phabrador_timeout_cb"; let once = true; type res = unit});
 external setTimeout: (TimeoutTracker.callbackId, int) => unit = "phabrador_setTimeout";
 let setTimeout = (fn, time) => setTimeout(TimeoutTracker.track(fn), time);
 
@@ -53,11 +53,9 @@ let recentDate = seconds => {
   }
 };
 
-let%component revision = (~rev: Data.Revision.t,
-  ~snoozeItem,
-~repos: Belt.Map.String.t(Repository.t), ~users: Belt.Map.String.t(Person.t), hooks) => {
-  let author = users->Belt.Map.String.get(rev.authorPHID);
-  let repo = repos->Belt.Map.String.get(rev.repositoryPHID);
+let%component revision = (~rev: Data.Revision.t, ~snoozeItem, hooks) => {
+  let author = rev.author;
+  let repo = rev.repository;
   if (rev.snoozed) {
     <view layout={Layout.style(
       ~paddingVertical=8.,
@@ -138,7 +136,11 @@ let%component revision = (~rev: Data.Revision.t,
         <view layout={Layout.style(~flexGrow=1., ())} />
         {str(switch repo {
           | None => "Unknown repo"
-          | Some({name}) => name
+          | Some({name}) =>
+          switch (rev.diff) {
+            | Some({branch: Some(branch)}) => branch ++ " : "
+            | _ => ""
+          } ++ name
         })}
       </view>
     </view>
@@ -149,8 +151,8 @@ let%component revision = (~rev: Data.Revision.t,
 let%component revisionList = (
   ~snoozeItem,
   ~revisions: list(Revision.t),
-~repos: Belt.Map.String.t(Repository.t),
-~users: Belt.Map.String.t(Person.t), ~title, hooks) => {
+  ~title,
+  hooks) => {
   if (revisions == []) {
     Fluid.Null
   } else {
@@ -159,7 +161,7 @@ let%component revisionList = (
         {str(title)}
       </view>
       {Fluid.Native.view(
-        ~children=revisions->Belt.List.sort((a, b) => b.dateModified - a.dateModified)->Belt.List.map(rev => <revision snoozeItem repos users rev /> ),
+        ~children=revisions->Belt.List.sort((a, b) => b.dateModified - a.dateModified)->Belt.List.map(rev => <revision snoozeItem rev /> ),
         ()
       )}
     </view>
@@ -170,10 +172,20 @@ let fetchData = () => {
   module C = Lets.Async.Result;
   let%C person = Api.whoAmI;
   let%C revisions = Api.getRevisions(person);
-  let%C users = Api.getUsers(revisions->Belt.List.map(r => r.Revision.authorPHID));
-  let%C repos = Api.getRepositories(revisions->Belt.List.map(r => r.repositoryPHID));
+  let users = Api.getUsers(revisions->Belt.List.map(r => r.Revision.authorPHID));
+  let repos = Api.getRepositories(revisions->Belt.List.map(r => r.repositoryPHID));
+  let diffs = Api.getDiffs(revisions->Belt.List.map(r => r.diffPHID));
+  let%C users = users;
+  let%C repos = repos;
+  let%C diffs = diffs;
+  let revisions = revisions->Belt.List.map(r => {
+    ...r,
+    author: users->Belt.Map.String.get(r.authorPHID),
+    repository: repos->Belt.Map.String.get(r.repositoryPHID),
+    diff: diffs->Belt.Map.String.get(r.diffPHID),
+  })
   let revisions = Revision.organize(person, revisions);
-  C.resolve((person, users, revisions, repos));
+  C.resolve((person, revisions));
 };
 
 let makeTitle = (revisions: Revision.all) => {
@@ -226,11 +238,11 @@ let%component main = (~assetsDir, ~refresh, ~setTitle, hooks) => {
     print_endline("Snoozing " ++ phid);
     switch (data) {
       | None => ()
-      | Some((p, u, r, re)) =>
+      | Some((p, r)) =>
         Config.toggleSnoozed(phid, until);
         let revisions = updateSnoozed(r);
         setTitle(Fluid.App.String(makeTitle(revisions)));
-        setData(Some((p, u, revisions, re)))
+        setData(Some((p, revisions)))
     };
   };
   /* print_endline("render"); */
@@ -249,11 +261,11 @@ let%component main = (~assetsDir, ~refresh, ~setTitle, hooks) => {
             | Error(error) =>
               setTitle(String("⌛"));
               setData(None);
-            | Ok((person, users, revisions, repos)) =>
+            | Ok((person, revisions)) =>
               let revisions = updateSnoozed(revisions);
               setTitle(Fluid.App.String(makeTitle(revisions)));
               /* print_endline("a"); */
-              setData(Some((person, users, revisions, repos)));
+              setData(Some((person, revisions)));
           };
           /* print_endline("b"); */
           setRefreshing(false);
@@ -282,9 +294,7 @@ let%component main = (~assetsDir, ~refresh, ~setTitle, hooks) => {
       | None => str("⌛ loading...")
       | Some((
           person,
-          users,
           revisions,
-          repos
         )) =>
     <scrollView
       layout={Layout.style(
@@ -299,32 +309,28 @@ let%component main = (~assetsDir, ~refresh, ~setTitle, hooks) => {
         <view layout={Layout.style(~alignItems=AlignStretch, ())}>
           <revisionList title="✅ Ready to land" 
           snoozeItem
-          users repos revisions={revisions.mine.accepted} />
+          revisions={revisions.mine.accepted} />
           <revisionList
             title="❌ Ready to update"
-            repos
-            users
             snoozeItem
             revisions={revisions.mine.needsRevision}
           />
           <revisionList
             title="🙏 Ready to review"
-            repos
-            users
             snoozeItem
             revisions={revisions.theirs.needsReview}
           />
           <revisionList title="⌛ Waiting on review"
             snoozeItem
-            users repos revisions={revisions.mine.needsReview}
+            revisions={revisions.mine.needsReview}
           />
           <revisionList title="⌛❌ Waiting for them to change"
             snoozeItem
-            users repos revisions={revisions.theirs.needsRevision}
+            revisions={revisions.theirs.needsRevision}
           />
           <revisionList title="⌛✅ Waiting for them to land"
             snoozeItem
-            users repos revisions={revisions.theirs.accepted}
+            revisions={revisions.theirs.accepted}
           />
         </view>
       </view>

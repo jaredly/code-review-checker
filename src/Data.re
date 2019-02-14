@@ -46,6 +46,43 @@ module Diff = {
     dateCreated: int,
     dateModified: int,
   };
+  let parse = result => {
+    module F = Lets.Opt;
+    open Json.Infix;
+    let%F phid = result |> Json.get("phid") |?> Json.string;
+    let%F id = result |> Json.get("id") |?> Json.number |?>> int_of_float;
+    let%F fields = result |> Json.get("fields");
+
+    let%F repositoryPHID = fields |> Json.get("repositoryPHID") |?> Json.string;
+    let%F revisionPHID = fields |> Json.get("revisionPHID") |?> Json.string;
+    let%F authorPHID = fields |> Json.get("authorPHID") |?> Json.string;
+
+    let%F dateCreated = fields |> Json.get("dateCreated") |?> Json.number |?>> int_of_float;
+    let%F dateModified = fields |> Json.get("dateModified") |?> Json.number |?>> int_of_float;
+
+    let branch = switch (fields |> Json.get("refs") |?> Json.array |?> Belt.List.get(_, 0)) {
+      | None => None
+      | Some(obj) =>
+        let%F typ = obj |> Json.get("type") |?> Json.string;
+        let%F name = obj |> Json.get("name") |?> Json.string;
+        if (typ == "branch") {
+          Some(name)
+        } else {
+          None
+        }
+    };
+
+    Some({
+      phid,
+      id,
+      repositoryPHID,
+      authorPHID,
+      revisionPHID,
+      dateModified,
+      dateCreated,
+      branch
+    });
+  };
 };
 
 module Revision = {
@@ -54,8 +91,11 @@ module Revision = {
     phid: string,
     id: int,
     repositoryPHID: string,
+    repository: option(Repository.t),
     authorPHID: string,
+    author: option(Person.t),
     diffPHID: string,
+    diff: option(Diff.t),
     summary: string,
     dateCreated: int,
     dateModified: int,
@@ -87,8 +127,11 @@ module Revision = {
       id,
       snoozed: false,
       repositoryPHID,
+      repository: None,
       authorPHID,
+      author: None,
       diffPHID,
+      diff: None,
       summary,
       dateModified,
       dateCreated,

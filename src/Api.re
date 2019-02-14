@@ -1,5 +1,8 @@
 
-module FetchTracker = FluidMac.Tracker({type arg = (string, int); let name = "phabrador_fetch_cb"; let once = true;});
+module FetchTracker = FluidMac.Tracker({
+  type arg = (string, int); let name = "phabrador_fetch_cb"; let once = true;
+  type res = unit;
+  });
 
 external homeDirectory: unit => string = "phabrador_homeDirectory";
 external fetch: (~url: string, ~callback: FetchTracker.callbackId, ~headers: array((string, string))) => unit = "phabrador_fetch";
@@ -73,7 +76,15 @@ let getRevisions = (me) => {
   Lets.Async.Result.resolve(data->Belt.List.keepMap(Data.Revision.parse))
 };
 
+let unique = items => {
+  let seen = Hashtbl.create(10);
+  items->Belt.List.keep(k => if (Hashtbl.mem(seen, k)) { false } else {
+    Hashtbl.add(seen, k, ()); true
+  })
+}
+
 let getUsers = (phids) => {
+  let phids = unique(phids);
   let%Lets.Async.Result result = call("user.query", phids->Belt.List.mapWithIndex((i, phid) => (
     ("phids[" ++ string_of_int(i) ++ "]", phid)
   )));
@@ -93,6 +104,7 @@ let getUsers = (phids) => {
 };
 
 let getRepositories = (phids) => {
+  let phids = unique(phids);
   let%Lets.Async.Result result = call("diffusion.repository.search", phids->Belt.List.mapWithIndex((i, phid) => (
     ("constraints[phids][" ++ string_of_int(i) ++ "]", phid)
   )));
@@ -104,15 +116,15 @@ let getRepositories = (phids) => {
   }))
 };
 
-/* let getDiffs = (phids) => {
+let getDiffs = (phids) => {
   let%Lets.Async.Result result = call("differential.diff.search", phids->Belt.List.mapWithIndex((i, phid) => (
     ("constraints[phids][" ++ string_of_int(i) ++ "]", phid)
   )));
   open Json.Infix;
   let%Lets.Opt.Force data = result |> Json.get("data") |?> Json.array;
-  let repos = data->Belt.List.keepMap(Data.Repository.parse);
-  Lets.Async.Result.resolve(repos->Belt.List.reduce(Belt.Map.String.empty, (map, repo) => {
-    Belt.Map.String.set(map, repo.phid, repo)
+  let repos = data->Belt.List.keepMap(Data.Diff.parse);
+  Lets.Async.Result.resolve(repos->Belt.List.reduce(Belt.Map.String.empty, (map, diff) => {
+    Belt.Map.String.set(map, diff.phid, diff)
   }))
-}; */
+};
 
