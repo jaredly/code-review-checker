@@ -1,9 +1,9 @@
 
 (library
   (name Phabrador)
-  (libraries str flex belt fluid RexJson fluid.Files fluid.MacOS odate)
+  (libraries str flex belt RexJson fluid.Files fluid.MacOS odate)
   (c_names Phabrador)
   (flags :standard -open RexJson -w -A)
     (c_flags -x objective-c)
-  (preprocess (pps belt.ppx fluid.ppx let-anything-esy)))
+  (preprocess (pps belt.ppx fluid.ppx let-anything-esy.ppx)))
 

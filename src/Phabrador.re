@@ -16,6 +16,16 @@ module TimeoutTracker = FluidMac.Tracker({type arg = unit; let name = "phabrador
 external setTimeout: (TimeoutTracker.callbackId, int) => unit = "phabrador_setTimeout";
 let setTimeout = (fn, time) => setTimeout(TimeoutTracker.track(fn), time);
 
+// let rec loop = () => {
+//   setTimeout(() => {
+//     print_endline("Ok");
+//     Api.fetch(~url="https://www.npr.org/feeds/344098539/feed.json", data => {
+//       print_endline("Fetched")
+//       loop();
+//     })
+//   }, 500)
+// };
+
 module ImageCache = Fluid.Cache({
   type arg = string;
   type result = Fluid.NativeInterface.image;
@@ -253,7 +263,6 @@ let%component main = (~assetsDir, ~refresh, ~setTitle, hooks) => {
         let cancel = ref(() => ());
         let rec loop = () => {
           cancel^();
-          /* print_endline("Looping here"); */
           setRefreshing(true);
           let%Lets.Async.Consume result = fetchData();
           /* print_endline("Fetched"); */

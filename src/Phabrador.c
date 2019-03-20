@@ -80,6 +80,9 @@ void phabrador_fetch(value url, value callback, value headers) {
         Store_field(tuple_v, 1, Val_int(httpResponse.statusCode));
 
         caml_callback2(*closure_f, Val_int(callbackId), tuple_v);
+        // [text release];
+        // [task release];
+        // [httpResponse release];
         CAMLreturn0;
       });
     }];
