@@ -12,6 +12,14 @@ let debug = ref(false);
 
 let getAuth = () => {
   let fpath = Filename.concat(homeDirectory(), ".arcrc");
+  // let fpath = "/Users/jared/.arcrc";
+  print_endline("Looking for auth in " ++ fpath);
+  if (Files.maybeStat(fpath) == None) {
+    print_endline("File doesn't exist");
+    exit(10);
+  } else {
+    print_endline("Found!");
+  };
   let json = Json.parse(Files.readFileExn(fpath));
   open Json.Infix;
   let base = json |> Json.get("config") |?> Json.get("default") |?> Json.string |! "No config.default";
@@ -83,6 +91,18 @@ let unique = items => {
   })
 }
 
+let imageTbl = Hashtbl.create(10);
+let getImage = (src, onDone) => {
+  switch (Hashtbl.find(imageTbl, src)) {
+    | exception Not_found =>
+      FluidMac.Fluid.NativeInterface.preloadImage(~src, ~onDone=loadedImage => {
+        Hashtbl.replace(imageTbl, src, loadedImage);
+        onDone(loadedImage)
+      })
+    | img => onDone(img)
+  }
+};
+
 let getUsers = (phids) => {
   let phids = unique(phids);
   let%Lets.Async.Result result = call("user.query", phids->Belt.List.mapWithIndex((i, phid) => (
@@ -92,10 +112,14 @@ let getUsers = (phids) => {
   /* let%Lets.Async */
   let people = data->Belt.List.keepMap(Data.Person.parse);
   let people =
-    people->Belt.List.map((person, cb) =>
-      FluidMac.Fluid.NativeInterface.preloadImage(~src=person.image, ~onDone=loadedImage => {
+    people->Belt.List.map((person, cb) => {
+      getImage(person.image, loadedImage => {
         cb({...person, loadedImage: Some(loadedImage)})
       })
+      // FluidMac.Fluid.NativeInterface.preloadImage(~src=person.image, ~onDone=loadedImage => {
+      //   cb({...person, loadedImage: Some(loadedImage)})
+      // })
+    }
     );
   let%Lets.Async people = Lets.Async.all(people);
   Lets.Async.Result.resolve(people->Belt.List.reduce(Belt.Map.String.empty, (map, person) => {

@@ -3,7 +3,10 @@
 
 CAMLprim value phabrador_homeDirectory() {
   CAMLparam0();
-  CAMLreturn(caml_copy_string([NSHomeDirectory() UTF8String]));
+  // CAMLreturn(caml_copy_string([NSHomeDirectory() UTF8String]));
+  
+  CAMLreturn(caml_copy_string([[[NSFileManager.defaultManager homeDirectoryForCurrentUser] path] UTF8String]));
+  // CAMLreturn(caml_copy_string("/Users/jared"));
 }
 
 void phabrador_setTimeout(value callback, value milis_v) {
@@ -80,7 +83,7 @@ void phabrador_fetch(value url, value callback, value headers) {
         Store_field(tuple_v, 1, Val_int(httpResponse.statusCode));
 
         caml_callback2(*closure_f, Val_int(callbackId), tuple_v);
-        // [text release];
+        [text release];
         // [task release];
         // [httpResponse release];
         CAMLreturn0;

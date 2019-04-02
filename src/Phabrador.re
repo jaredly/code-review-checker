@@ -25,15 +25,16 @@ let setTimeout = (fn, time) => setTimeout(TimeoutTracker.track(fn), time);
 //     })
 //   }, 500)
 // };
+// loop();
 
-module ImageCache = Fluid.Cache({
-  type arg = string;
-  type result = Fluid.NativeInterface.image;
-  let reason = Fluid.noReason;
-  let fetch = (src, onDone) => {
-    Fluid.NativeInterface.preloadImage(~src, ~onDone)
-  }
-});
+// module ImageCache = Fluid.Cache({
+//   type arg = string;
+//   type result = Fluid.NativeInterface.image;
+//   let reason = Fluid.noReason;
+//   let fetch = (src, onDone) => {
+//     Fluid.NativeInterface.preloadImage(~src, ~onDone)
+//   }
+// });
 
 
 let timePrinter = ODate.Unix.To.generate_printer("%I:%M%P")->Lets.Opt.force;
