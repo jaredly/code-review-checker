@@ -232,7 +232,7 @@ let setCancellableTimeout = (fn, tm) => {
 };
 
 let refreshTime = 5 * 60 * 1000;
-/* let refreshTime = 5 * 1000; */
+// let refreshTime = 3 * 1000;
 
 let updateSnoozed = revisions =>  {
   let now = Unix.time();
@@ -247,6 +247,7 @@ let%component main = (~assetsDir, ~refresh, ~setTitle, hooks) => {
 
   let snoozeItem = (phid, until) => {
     print_endline("Snoozing " ++ phid);
+    // Gc.full_major();
     switch (data) {
       | None => ()
       | Some((p, r)) =>

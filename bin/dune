@@ -4,6 +4,7 @@
   (libraries Phabrador)
   (modules PhabradorDev)
   (modes native byte object shared_object)
+  (flags -g)
   ; (link_flags -cclib -framework -cclib Cocoa -cclib -framework -cclib Carbon -cclib -framework -cclib CoreImage)
   (preprocess (pps belt.ppx fluid.ppx)))
 
