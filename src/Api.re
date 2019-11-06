@@ -36,6 +36,8 @@ module Phabricator = {
   };
 
   let (hostname, token, base) = getAuth();
+  let diffUrl = id => base ++ "/D" ++ string_of_int(id);
+  // Api.base ++ "/D" ++ string_of_int(rev.id)
 
   let call = (endp, args): Lets.Async.Result.t(Json.t, string) => {
     let url = hostname ++ endp ++ "?" ++ kwargs([("api.token", token), ...args]);
@@ -156,34 +158,37 @@ module Phabricator = {
 
 module GitHub = {
   let getAuth = () => {
-    // let fpath = Filename.concat(homeDirectory(), ".config/hub");
-    // // let fpath = "/Users/jared/.arcrc";
-    // print_endline("Looking for auth in " ++ fpath);
-    // if (Files.maybeStat(fpath) == None) {
-    //   print_endline("File doesn't exist");
-    //   exit(10);
-    // } else {
-    //   print_endline("Found!");
-    // };
-    // let%Lets.TryForce data = Yaml.of_string(Files.readFileExn(fpath));
-    // let%lets.TryForce token = switch data {
-    //   | `O([("github.com", `O(body)), ..._]) => switch (Belt.Array.getAssoc(body, "oauth_token")) {
-    //     | Some(`String(token)) => Ok(token)
-    //     | _ => Error("No oauth_token or malformed yaml")
-    //   }
-    //   | _ => Error("No github.com entry or malformed yaml")
-    // };
-    // token
-    "hi"
+    let fpath = Filename.concat(homeDirectory(), ".config/hub");
+    // let fpath = "/Users/jared/.arcrc";
+    print_endline("Looking for auth in " ++ fpath);
+    if (Files.maybeStat(fpath) == None) {
+      print_endline("File doesn't exist");
+      exit(10);
+    } else {
+      print_endline("Found!");
+    };
+    let%Lets.TryForce data = try%Lets.Try (Yaml.of_string(Files.readFileExn(fpath))) {
+      | `Msg(str) => Error(Failure(str))
+    };
+    let%Lets.TryForce token = switch data {
+      | `O([("github.com", `O(body)), ..._]) => switch (List.assoc("oauth_token", body)) {
+        | exception _ => Error(Failure("No oauth_token or malformed yaml"))
+        | `String(token) => Ok(token)
+        | _ => Error(Failure("No oauth_token or malformed yaml"))
+      }
+      | _ => Error(Failure("No github.com entry or malformed yaml"))
+    };
+    token
   };
 
+  let diffUrl = id => "https://github.com/Khan/mobile/pull/" ++ string_of_int(id);
+
   let token = getAuth();
-  let base = "";
   let hostname = "https://api.github.com/";
 
   let call = (endp, args): Lets.Async.Result.t(Json.t, string) => {
     let url = hostname ++ endp ++ "?" ++ kwargs([("api.token", token), ...args]);
-    /* print_endline("calling " ++ url); */
+    print_endline("calling " ++ url);
     let%Lets.Async (body, status) = fetch(~url);
     /* STOPSHIP make this dev-only or something */
     if (debug^) {

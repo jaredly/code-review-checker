@@ -108,7 +108,7 @@ let%component revision = (~rev: Data.Revision.t, ~snoozeItem, hooks) => {
           />
         <button
           layout={Layout.style(~left=-5., ())}
-          onPress={() => openUrl(Api.base ++ "/D" ++ string_of_int(rev.id))}
+          onPress={() => openUrl(Api.diffUrl(rev.id))}
           title="Go"
         />
         </view>

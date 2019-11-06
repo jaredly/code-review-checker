@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "ocaml": "4.7.0",
+    "@opam/yaml": "*",
     "@opam/dune": "*",
     "@opam/reason": "*",
     "@opam/odate": "*",
