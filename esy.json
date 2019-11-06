@@ -13,7 +13,7 @@
     "pkg": "sh -c 'cd bundler && ./bundle.sh'"
   },
   "dependencies": {
-    "ocaml": ">=4.7.0",
+    "ocaml": "4.7.0",
     "@opam/dune": "*",
     "@opam/reason": "*",
     "@opam/odate": "*",
