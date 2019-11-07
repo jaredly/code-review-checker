@@ -25,7 +25,41 @@ let kwargs = items =>
     ),
   );
 
-let debug = ref(true);
+let imageTbl = Hashtbl.create(10);
+let getImage = (src, onDone) => {
+  switch (Hashtbl.find(imageTbl, src)) {
+  | exception Not_found =>
+    print_endline("Getting " ++ src);
+    FluidMac.Fluid.NativeInterface.preloadImage(
+      ~src,
+      ~onDone=loadedImage => {
+        print_endline("Got " ++ src);
+        Hashtbl.replace(imageTbl, src, loadedImage);
+        onDone(loadedImage);
+      },
+    )
+  | img => onDone(img)
+  };
+};
+
+let cachedImage = (src) => {
+  switch (Hashtbl.find(imageTbl, src)) {
+  | exception Not_found => 
+    FluidMac.Fluid.NativeInterface.preloadImage(
+      ~src,
+      ~onDone=loadedImage => {
+        print_endline("Got " ++ src);
+        Hashtbl.replace(imageTbl, src, loadedImage);
+        // onDone(loadedImage);
+      },
+    )
+  None
+  | img => Some(img)
+  };
+
+}
+
+let debug = ref(false);
 
 module Phabricator = {
   let getAuth = () => {
@@ -127,21 +161,6 @@ module Phabricator = {
         true;
       }
     );
-  };
-
-  let imageTbl = Hashtbl.create(10);
-  let getImage = (src, onDone) => {
-    switch (Hashtbl.find(imageTbl, src)) {
-    | exception Not_found =>
-      FluidMac.Fluid.NativeInterface.preloadImage(
-        ~src,
-        ~onDone=loadedImage => {
-          Hashtbl.replace(imageTbl, src, loadedImage);
-          onDone(loadedImage);
-        },
-      )
-    | img => onDone(img)
-    };
   };
 
   let getUsers = phids => {
@@ -246,7 +265,7 @@ module GitHub = {
 
   let call = (endp, args): Lets.Async.Result.t(Json.t, string) => {
     let url = hostname ++ endp ++ "?" ++ kwargs(args);
-    print_endline("calling " ++ url);
+    // print_endline("calling " ++ url);
     let%Lets.Async (body, status) =
       fetch(
         ~headers=[|
@@ -335,8 +354,14 @@ module GitHub = {
       );
     open Json.Infix;
     let%Lets.Opt.Force data = result |> Json.array;
+    let prs = data -> Belt.List.keepMap(item => Data.PR.parse(item) -> Lets.Try.ok)
+    // let%Lets.Async.Result prs = Lets.Async.Result.wrap(data |> Data.tryMap(item => Data.PR.parse(item)));
+    let%Lets.Async.Result prs = Lets.Async.Result.all(prs->Belt.List.map((pr, cb) => {
+        getImage(pr.user.avatar_url, loadedImage
+          => cb(Ok({...pr, user: {...pr.user, loadedImage: Some(loadedImage)}})))
+    }));
     Lets.Async.Result.resolve(
-      data->Belt.List.keepMap(item => Data.PR.parse(item) |> Lets.Try.ok),
+      prs
     );
   };
 
@@ -353,19 +378,6 @@ module GitHub = {
     );
   };
 
-  let getReviews = (repo, pr) => {
-    let%Lets.Async.Result result =
-      call(
-        "repos/" ++ repo ++ "/pulls/" ++ string_of_int(pr) ++ "/reviews",
-        [],
-      );
-    open Json.Infix;
-    let%Lets.Opt.Force data = result |> Json.array;
-    Lets.Async.Result.wrap(
-      data|> Data.tryMap(Data.Review.parse),
-    );
-  };
-
   let unique = items => {
     let seen = Hashtbl.create(10);
     items->Belt.List.keep(k =>
@@ -378,85 +390,91 @@ module GitHub = {
     );
   };
 
-  let imageTbl = Hashtbl.create(10);
-  let getImage = (src, onDone) => {
-    switch (Hashtbl.find(imageTbl, src)) {
-    | exception Not_found =>
-      FluidMac.Fluid.NativeInterface.preloadImage(
-        ~src,
-        ~onDone=loadedImage => {
-          Hashtbl.replace(imageTbl, src, loadedImage);
-          onDone(loadedImage);
-        },
-      )
-    | img => onDone(img)
-    };
-  };
-
-  let getUsers = phids => {
-    let phids = unique(phids);
+  let getReviews = (repo, pr) => {
     let%Lets.Async.Result result =
       call(
-        "user.query",
-        phids->Belt.List.mapWithIndex((i, phid) =>
-          ("phids[" ++ string_of_int(i) ++ "]", phid)
-        ),
+        "repos/" ++ repo ++ "/pulls/" ++ string_of_int(pr) ++ "/reviews",
+        [],
       );
+    open Json.Infix;
     let%Lets.Opt.Force data = result |> Json.array;
-    /* let%Lets.Async */
-    let people = data->Belt.List.keepMap(Data.Person.parse);
-    let people =
-      people->Belt.List.map((person, cb) =>
-        getImage(person.image, loadedImage
-          => cb({...person, loadedImage: Some(loadedImage)}))
-          // FluidMac.Fluid.NativeInterface.preloadImage(~src=person.image, ~onDone=loadedImage => {
-          //   cb({...person, loadedImage: Some(loadedImage)})
-          // })
-      );
-    let%Lets.Async people = Lets.Async.all(people);
-    Lets.Async.Result.resolve(
-      people->Belt.List.reduce(Belt.Map.String.empty, (map, person) =>
-        Belt.Map.String.set(map, person.phid, person)
-      ),
-    );
+    let%Lets.Async.Result reviews = Lets.Async.Result.wrap(data |> Data.tryMap(Data.Review.parse));
+
+    // let%Lets.Async.Result reviews = Lets.Async.Result.all(reviews->Belt.List.map((review, cb) => {
+    //     getImage(review.user.avatar_url, loadedImage
+    //       => {
+    //         print_endline("Done " ++ review.user.avatar_url);
+    //         cb(Ok({...review, user: {...review.user, loadedImage: Some(loadedImage)}}))
+    //       })
+    // }));
+    
+    Lets.Async.Result.resolve(reviews)
   };
 
-  let getRepositories = phids => {
-    let phids = unique(phids);
-    let%Lets.Async.Result result =
-      call(
-        "diffusion.repository.search",
-        phids->Belt.List.mapWithIndex((i, phid) =>
-          ("constraints[phids][" ++ string_of_int(i) ++ "]", phid)
-        ),
-      );
-    open Json.Infix;
-    let%Lets.Opt.Force data = result |> Json.get("data") |?> Json.array;
-    let repos = data->Belt.List.keepMap(Data.Repository.parse);
-    Lets.Async.Result.resolve(
-      repos->Belt.List.reduce(Belt.Map.String.empty, (map, repo) =>
-        Belt.Map.String.set(map, repo.phid, repo)
-      ),
-    );
-  };
+  // let getUsers = phids => {
+  //   let phids = unique(phids);
+  //   let%Lets.Async.Result result =
+  //     call(
+  //       "user.query",
+  //       phids->Belt.List.mapWithIndex((i, phid) =>
+  //         ("phids[" ++ string_of_int(i) ++ "]", phid)
+  //       ),
+  //     );
+  //   let%Lets.Opt.Force data = result |> Json.array;
+  //   /* let%Lets.Async */
+  //   let people = data->Belt.List.keepMap(Data.Person.parse);
+  //   let people =
+  //     people->Belt.List.map((person, cb) =>
+  //       getImage(person.image, loadedImage
+  //         => cb({...person, loadedImage: Some(loadedImage)}))
+  //         // FluidMac.Fluid.NativeInterface.preloadImage(~src=person.image, ~onDone=loadedImage => {
+  //         //   cb({...person, loadedImage: Some(loadedImage)})
+  //         // })
+  //     );
+  //   let%Lets.Async people = Lets.Async.all(people);
+  //   Lets.Async.Result.resolve(
+  //     people->Belt.List.reduce(Belt.Map.String.empty, (map, person) =>
+  //       Belt.Map.String.set(map, person.phid, person)
+  //     ),
+  //   );
+  // };
 
-  let getDiffs = phids => {
-    let%Lets.Async.Result result =
-      call(
-        "differential.diff.search",
-        phids->Belt.List.mapWithIndex((i, phid) =>
-          ("constraints[phids][" ++ string_of_int(i) ++ "]", phid)
-        ),
-      );
-    open Json.Infix;
-    let%Lets.Opt.Force data = result |> Json.get("data") |?> Json.array;
-    let repos = data->Belt.List.keepMap(Data.Diff.parse);
-    Lets.Async.Result.resolve(
-      repos->Belt.List.reduce(Belt.Map.String.empty, (map, diff) =>
-        Belt.Map.String.set(map, diff.phid, diff)
-      ),
-    );
-  };
+  // let getRepositories = phids => {
+  //   let phids = unique(phids);
+  //   let%Lets.Async.Result result =
+  //     call(
+  //       "diffusion.repository.search",
+  //       phids->Belt.List.mapWithIndex((i, phid) =>
+  //         ("constraints[phids][" ++ string_of_int(i) ++ "]", phid)
+  //       ),
+  //     );
+  //   open Json.Infix;
+  //   let%Lets.Opt.Force data = result |> Json.get("data") |?> Json.array;
+  //   let repos = data->Belt.List.keepMap(Data.Repository.parse);
+  //   Lets.Async.Result.resolve(
+  //     repos->Belt.List.reduce(Belt.Map.String.empty, (map, repo) =>
+  //       Belt.Map.String.set(map, repo.phid, repo)
+  //     ),
+  //   );
+  // };
+
+  // let getDiffs = phids => {
+  //   let%Lets.Async.Result result =
+  //     call(
+  //       "differential.diff.search",
+  //       phids->Belt.List.mapWithIndex((i, phid) =>
+  //         ("constraints[phids][" ++ string_of_int(i) ++ "]", phid)
+  //       ),
+  //     );
+  //   open Json.Infix;
+  //   let%Lets.Opt.Force data = result |> Json.get("data") |?> Json.array;
+  //   let repos = data->Belt.List.keepMap(Data.Diff.parse);
+  //   Lets.Async.Result.resolve(
+  //     repos->Belt.List.reduce(Belt.Map.String.empty, (map, diff) =>
+  //       Belt.Map.String.set(map, diff.phid, diff)
+  //     ),
+  //   );
+  // };
 };
 
-include GitHub;
+include Phabricator;
