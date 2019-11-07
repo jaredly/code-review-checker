@@ -1,4 +1,3 @@
-
 open FluidMac;
 open Data;
 
@@ -11,9 +10,17 @@ let str = Fluid.string;
 let gray = n => {r: n, g: n, b: n, a: 1.};
 
 external openUrl: string => unit = "phabrador_openUrl";
+external isDarkMode: unit => bool = "phabrador_isDarkMode";
 
-module TimeoutTracker = FluidMac.Tracker({type arg = unit; let name = "phabrador_timeout_cb"; let once = true; type res = unit});
-external setTimeout: (TimeoutTracker.callbackId, int) => unit = "phabrador_setTimeout";
+module TimeoutTracker =
+  FluidMac.Tracker({
+    type arg = unit;
+    let name = "phabrador_timeout_cb";
+    let once = true;
+    type res = unit;
+  });
+external setTimeout: (TimeoutTracker.callbackId, int) => unit =
+  "phabrador_setTimeout";
 let setTimeout = (fn, time) => setTimeout(TimeoutTracker.track(fn), time);
 
 // module ImageCache = Fluid.Cache({
@@ -24,7 +31,6 @@ let setTimeout = (fn, time) => setTimeout(TimeoutTracker.track(fn), time);
 //     Fluid.NativeInterface.preloadImage(~src, ~onDone)
 //   }
 // });
-
 
 let timePrinter = ODate.Unix.To.generate_printer("%I:%M%P")->Lets.Opt.force;
 let datePrinter = ODate.Unix.To.generate_printer("%b %E, %Y")->Lets.Opt.force;
@@ -37,9 +43,9 @@ let recentDate = seconds => {
   let yesterday = today->advance_by_days(-1);
 
   if (date > today) {
-    "Today at " ++ To.string(~tz=ODate.Local, timePrinter, date)
+    "Today at " ++ To.string(~tz=ODate.Local, timePrinter, date);
   } else if (date > yesterday) {
-    "Yesterday at " ++ To.string(~tz=ODate.Local, timePrinter, date)
+    "Yesterday at " ++ To.string(~tz=ODate.Local, timePrinter, date);
   } else {
     let diff = between(date, now);
     let days = ODuration.To.day(diff);
@@ -48,211 +54,470 @@ let recentDate = seconds => {
     } else if (days <= 7 * 4) {
       Printf.sprintf("%d weeks ago", days / 7);
     } else {
-      To.string(~tz=ODate.Local, datePrinter, date)
-    }
-  }
+      To.string(~tz=ODate.Local, datePrinter, date);
+    };
+  };
 };
 
-let%component revision = (~rev: Data.Revision.t, ~snoozeItem, hooks) => {
-  let author = rev.author;
-  let repo = rev.repository;
-  if (rev.snoozed) {
-    <view layout={Layout.style(
-      ~paddingVertical=8.,
-      ~marginHorizontal=8.,
-      ~alignSelf=AlignStretch,
-      ~flexDirection=Row,
-      ())}
-    >
-      {str(~layout=Layout.style(~flexGrow=1., ()), ~font={fontName: "Helvetica", fontSize: 12.}, rev.Revision.title)}
-      <button
-        onPress={() => {
-          if (rev.snoozed) {
-            snoozeItem(rev.phid, None)
-          } else {
-            let tomorrow = ODate.Unix.From.seconds_float(Unix.time())
-            -> ODate.Unix.beginning_of_the_day(~tz=ODate.Local, _)
-            -> ODate.Unix.advance_by_days(1);
-            snoozeItem(rev.phid, Some(tomorrow->ODate.Unix.To.seconds_float))
-          }
-        }}
-        title={"Unsnooze"}
-      />
-    </view>
-  } else {
+// let%component revision = (~rev: Data.Revision.t, ~snoozeItem, hooks) => {
+//   let author = rev.author;
+//   let repo = rev.repository;
+//   if (rev.snoozed) {
+//     <view layout={Layout.style(
+//       ~paddingVertical=8.,
+//       ~marginHorizontal=8.,
+//       ~alignSelf=AlignStretch,
+//       ~flexDirection=Row,
+//       ())}
+//     >
+//       {str(~layout=Layout.style(~flexGrow=1., ()), ~font={fontName: "Helvetica", fontSize: 12.}, rev.Revision.title)}
+//       <button
+//         onPress={() => {
+//           if (rev.snoozed) {
+//             snoozeItem(rev.phid, None)
+//           } else {
+//             let tomorrow = ODate.Unix.From.seconds_float(Unix.time())
+//             -> ODate.Unix.beginning_of_the_day(~tz=ODate.Local, _)
+//             -> ODate.Unix.advance_by_days(1);
+//             snoozeItem(rev.phid, Some(tomorrow->ODate.Unix.To.seconds_float))
+//           }
+//         }}
+//         title={"Unsnooze"}
+//       />
+//     </view>
+//   } else {
 
-  <view layout={Layout.style(
-    ~paddingVertical=8.,
-    ~marginHorizontal=8.,
-    ~flexDirection=Row,
-    ~alignSelf=AlignStretch,
-    ())}
-  >
+//   <view layout={Layout.style(
+//     ~paddingVertical=8.,
+//     ~marginHorizontal=8.,
+//     ~flexDirection=Row,
+//     ~alignSelf=AlignStretch,
+//     ())}
+//   >
+//     <view
+//     >
+//       {switch author {
+//         | None => str("Unknown author: " ++ rev.authorPHID)
+//         | Some(person) =>
+//         <view>
+//           /* {str(person.userName)} */
+//           /* <loadingImage src={person.image}
+//           layout={Layout.style(~width=30., ~height=30., ())} /> */
+//           <image
+//             src={
+//               switch (person.loadedImage) {
+//                 | None => Plain(person.image)
+//                 | Some(i) => Preloaded(i)
+//               }
+//             }
+//             layout={Layout.style(~margin=3., ~width=30., ~height=30., ())}
+//           />
+//         <button
+//           layout={Layout.style(~left=-5., ())}
+//           onPress={() => openUrl(Api.diffUrl(rev.id))}
+//           title="Go"
+//         />
+//         </view>
+//       }}
+//     </view>
+//     <view layout={Layout.style(~flexGrow=1., ~flexShrink=1., ())} >
+//       <view layout={Layout.style(~flexDirection=Row, ())}>
+//         {str(~layout=Layout.style(~flexGrow=1., ~flexShrink=1., ()), ~font={fontName: "Helvetica", fontSize: 18.}, rev.Revision.title)}
+//         <button
+//           onPress={() => {
+//             if (rev.snoozed) {
+//               snoozeItem(rev.phid, None)
+//             } else {
+//               let tomorrow = ODate.Unix.From.seconds_float(Unix.time())
+//               -> ODate.Unix.beginning_of_the_day
+//               -> ODate.Unix.advance_by_days(1);
+//               snoozeItem(rev.phid, Some(tomorrow->ODate.Unix.To.seconds_float))
+//             }
+//           }}
+//           title={rev.snoozed ? "❗" : "💤"}
+//         />
+//       </view>
+//       <view layout={Layout.style(~flexDirection=Row, ())}>
+//         {str(recentDate(rev.dateModified))}
+//         <view layout={Layout.style(~flexGrow=1., ())} />
+//         {str(switch repo {
+//           | None => "Unknown repo"
+//           | Some({name}) =>
+//           switch (rev.diff) {
+//             | Some({branch: Some(branch)}) => branch ++ " : "
+//             | _ => ""
+//           } ++ name
+//         })}
+//       </view>
+//     </view>
+//   </view>
+//   }
+// };
+
+let toSeconds = text =>
+  ODate.Unix.From.string(Data.dateParser, text)->ODate.Unix.To.seconds;
+
+let%component revision = (~rev: Data.PR.t, ~snoozeItem, hooks) => {
+  let author = rev.user;
+  // let repo = rev.repository;
+  if (false) {
+    failwith(
+      "WIP",
+      // if (rev.snoozed) {
+      //   <view layout={Layout.style(
+      //     ~paddingVertical=8.,
+      //     ~marginHorizontal=8.,
+      //     ~alignSelf=AlignStretch,
+      //     ~flexDirection=Row,
+      //     ())}
+      //   >
+      //     {str(~layout=Layout.style(~flexGrow=1., ()), ~font={fontName: "Helvetica", fontSize: 12.}, rev.Revision.title)}
+      //     <button
+      //       onPress={() => {
+      //         if (rev.snoozed) {
+      //           snoozeItem(rev.phid, None)
+      //         } else {
+      //           let tomorrow = ODate.Unix.From.seconds_float(Unix.time())
+      //           -> ODate.Unix.beginning_of_the_day(~tz=ODate.Local, _)
+      //           -> ODate.Unix.advance_by_days(1);
+      //           snoozeItem(rev.phid, Some(tomorrow->ODate.Unix.To.seconds_float))
+      //         }
+      //       }}
+      //       title={"Unsnooze"}
+      //     />
+      //   </view>
+    );
+  } else {
     <view
-    >
-      {switch author {
-        | None => str("Unknown author: " ++ rev.authorPHID)
-        | Some(person) =>
+      layout={Layout.style(
+        ~paddingVertical=8.,
+        ~marginHorizontal=8.,
+        ~flexDirection=Row,
+        ~alignSelf=AlignStretch,
+        (),
+      )}>
+      // onPress={() => openUrl(Api.diffUrl(rev.number))}
+
         <view>
-          /* {str(person.userName)} */
-          /* <loadingImage src={person.image} 
-          layout={Layout.style(~width=30., ~height=30., ())} /> */
-          <image
-            src={
-              switch (person.loadedImage) {
-                | None => Plain(person.image)
-                | Some(i) => Preloaded(i)
+          <view>
+            <image
+              src={
+                // switch (user.loadedImage) {
+                //   | None => Plain(user.avatar_url)
+                //   | Some(i) => Preloaded(i)
+                // }
+                Plain(
+                  author.avatar_url,
+                )
               }
-            }
-            layout={Layout.style(~margin=3., ~width=30., ~height=30., ())}
-          />
-        <button
-          layout={Layout.style(~left=-5., ())}
-          onPress={() => openUrl(Api.diffUrl(rev.id))}
-          title="Go"
-        />
+              layout={Layout.style(~margin=3., ~width=30., ~height=30., ())}
+            />
+            <button
+              layout={Layout.style(~left=-5., ())}
+              onPress={() => openUrl(Api.diffUrl(rev.number))}
+              title="Go"
+            />
+          </view>
         </view>
-      }}
-    </view>
-    <view layout={Layout.style(~flexGrow=1., ~flexShrink=1., ())} >
-      <view layout={Layout.style(~flexDirection=Row, ())}>
-        {str(~layout=Layout.style(~flexGrow=1., ~flexShrink=1., ()), ~font={fontName: "Helvetica", fontSize: 18.}, rev.Revision.title)}
-        <button
-          onPress={() => {
-            if (rev.snoozed) {
-              snoozeItem(rev.phid, None)
-            } else {
-              let tomorrow = ODate.Unix.From.seconds_float(Unix.time())
-              -> ODate.Unix.beginning_of_the_day
-              -> ODate.Unix.advance_by_days(1);
-              snoozeItem(rev.phid, Some(tomorrow->ODate.Unix.To.seconds_float))
-            }
-          }}
-          title={rev.snoozed ? "❗" : "💤"}
-        />
-      </view>
-      <view layout={Layout.style(~flexDirection=Row, ())}>
-        {str(recentDate(rev.dateModified))}
-        <view layout={Layout.style(~flexGrow=1., ())} />
-        {str(switch repo {
-          | None => "Unknown repo"
-          | Some({name}) =>
-          switch (rev.diff) {
-            | Some({branch: Some(branch)}) => branch ++ " : "
-            | _ => ""
-          } ++ name
-        })}
-      </view>
-    </view>
-  </view>
-  }
+        /* <loadingImage src={person.image}
+           layout={Layout.style(~width=30., ~height=30., ())} /> */
+        /* {str(person.userName)} */
+        <view layout={Layout.style(~flexGrow=1., ~flexShrink=1., ())}>
+          <view layout={Layout.style(~flexDirection=Row, ())}>
+            {str(
+               ~layout=Layout.style(~flexGrow=1., ~flexShrink=1., ()),
+               ~font={fontName: "Helvetica", fontSize: 18.},
+               rev.title,
+             )}
+            <button
+              onPress={() =>
+                // if (rev.snoozed) {
+                //   snoozeItem(rev.phid, None)
+                // } else {
+                //   let tomorrow = ODate.Unix.From.seconds_float(Unix.time())
+                //   -> ODate.Unix.beginning_of_the_day
+                //   -> ODate.Unix.advance_by_days(1);
+                //   snoozeItem(rev.phid, Some(tomorrow->ODate.Unix.To.seconds_float))
+                // }
+                ()}
+              // title={rev.snoozed ? "❗" : "💤"}
+              title="zzz"
+            />
+          </view>
+          {Fluid.Native.view(
+             ~layout=
+               {Layout.style(~flexDirection=Row, ~flexWrap=CssWrap, ())},
+             ~children=
+               {rev.reviews
+                // ->Belt.List.sort((a, b) => compare(a.name, b.name))
+                ->Belt.List.map(review =>
+                    <view layout={Layout.style(~flexDirection=Row, ())}>
+
+                        <image
+                          src={
+                            // switch (user.loadedImage) {
+                            //   | None => Plain(user.avatar_url)
+                            //   | Some(i) => Preloaded(i)
+                            // }
+                            Plain(
+                              review.user.avatar_url,
+                            )
+                          }
+                          layout={Layout.style(
+                            ~margin=3.,
+                            ~width=20.,
+                            ~height=20.,
+                            (),
+                          )}
+                        />
+                        {str(
+                           review.state == "CHANGES_REQUESTED"
+                             ? "❌"
+                             : review.state == "APPROVED" ? "✅" : "💬",
+                         )}
+                      </view>
+                      // {str(review.user.login)}
+                  )
+                // {str(
+                //    ~font={
+                //      ...Fluid.NativeInterface.defaultFont,
+                //      fontSize: 8.0,
+                //    },
+                //    check.name,
+                //  )}
+},
+             (),
+           )}
+          {Fluid.Native.view(
+             ~layout=
+               {Layout.style(~flexDirection=Row, ~flexWrap=CssWrap, ())},
+             ~children=
+               {rev.checks
+                ->Belt.List.sort((a, b) => compare(a.name, b.name))
+                ->Belt.List.map(check =>
+                    <view layout={Layout.style(~flexDirection=Row, ())}>
+                      {str(
+                         check.status != "completed"
+                           ? "⌛"
+                           : check.conclusion == Some("failure")
+                               ? "❌"
+                               : check.conclusion == Some("success")
+                                   ? "✅" : "❔",
+                       )}
+                    </view>
+                  )
+                // {str(
+                //    ~font={
+                //      ...Fluid.NativeInterface.defaultFont,
+                //      fontSize: 8.0,
+                //    },
+                //    check.name,
+                //  )}
+},
+             (),
+           )}
+          <view layout={Layout.style(~flexDirection=Row, ())}>
+            {str(recentDate(toSeconds(rev.updated_at)))}
+            <view layout={Layout.style(~flexGrow=1., ())} />
+            // {str(switch repo {
+            //   | None => "Unknown repo"
+            //   | Some({name}) =>
+            //   switch (rev.diff) {
+            //     | Some({branch: Some(branch)}) => branch ++ " : "
+            //     | _ => ""
+            //   } ++ name
+            // })}
+            {str(rev.head.ref)}
+          </view>
+        </view>
+      </view>;
+  };
 };
 
-let%component revisionList = (
-  ~snoozeItem,
-  ~revisions: list(Revision.t),
-  ~title,
-  hooks) => {
+// let%component revisionList = (
+//   ~snoozeItem,
+//   ~revisions: list(Revision.t),
+//   ~title,
+//   hooks) => {
+//   if (revisions == []) {
+//     Fluid.Null
+//   } else {
+//     <view layout={Layout.style(~alignItems=AlignStretch, ())}>
+//       <view backgroundColor=gray(0.9) layout={Layout.style(~paddingHorizontal=8., ~paddingVertical=4., ())}>
+//         {str(title)}
+//       </view>
+//       {Fluid.Native.view(
+//         ~children=revisions->Belt.List.sort((a, b) => b.dateModified - a.dateModified)->Belt.List.map(rev => <revision snoozeItem rev /> ),
+//         ()
+//       )}
+//     </view>
+//   }
+// };
+
+let%component revisionList =
+              (~snoozeItem, ~revisions: list(Data.PR.t), ~title, hooks) =>
   if (revisions == []) {
-    Fluid.Null
+    Fluid.Null;
   } else {
+    let darkMode = isDarkMode();
     <view layout={Layout.style(~alignItems=AlignStretch, ())}>
-      <view backgroundColor=gray(0.9) layout={Layout.style(~paddingHorizontal=8., ~paddingVertical=4., ())}>
+      <view
+        backgroundColor={darkMode ? gray(0.3) : gray(0.9)}
+        layout={Layout.style(~paddingHorizontal=8., ~paddingVertical=4., ())}>
         {str(title)}
       </view>
       {Fluid.Native.view(
-        ~children=revisions->Belt.List.sort((a, b) => b.dateModified - a.dateModified)->Belt.List.map(rev => <revision snoozeItem rev /> ),
-        ()
-      )}
-    </view>
-  }
-};
+         ~children=
+           revisions
+           ->Belt.List.sort((a, b) =>
+               toSeconds(b.updated_at) - toSeconds(a.updated_at)
+             )
+           ->Belt.List.map(rev => <revision snoozeItem rev />),
+         (),
+       )}
+    </view>;
+  };
 
-let fetchData = () => {
-  module C = Lets.Async.Result;
-  print_endline("Fetching data");
-  let%C person = Api.whoAmI;
-  print_endline("Person");
-  let%C revisions = Api.getRevisions(person);
-  print_endline("Done with revisions");
-  let users = Api.getUsers(revisions->Belt.List.map(r => r.Revision.authorPHID));
-  let repos = Api.getRepositories(revisions->Belt.List.map(r => r.repositoryPHID));
-  let diffs = Api.getDiffs(revisions->Belt.List.map(r => r.diffPHID));
-  let%C users = users;
-  let%C repos = repos;
-  let%C diffs = diffs;
-  let revisions = revisions->Belt.List.map(r => {
-    ...r,
-    author: users->Belt.Map.String.get(r.authorPHID),
-    repository: repos->Belt.Map.String.get(r.repositoryPHID),
-    diff: diffs->Belt.Map.String.get(r.diffPHID),
-  })
-  let revisions = Revision.organize(person, revisions);
-  C.resolve((person, revisions));
-};
+// let fetchData = () => {
+//   module C = Lets.Async.Result;
+//   print_endline("Fetching data");
+//   let%C person = Api.whoAmI;
+//   print_endline("Person");
+//   let%C revisions = Api.getRevisions(person);
+//   print_endline("Done with revisions");
+//   let users = Api.getUsers(revisions->Belt.List.map(r => r.Revision.authorPHID));
+//   let repos = Api.getRepositories(revisions->Belt.List.map(r => r.repositoryPHID));
+//   let diffs = Api.getDiffs(revisions->Belt.List.map(r => r.diffPHID));
+//   let%C users = users;
+//   let%C repos = repos;
+//   let%C diffs = diffs;
+//   let revisions = revisions->Belt.List.map(r => {
+//     ...r,
+//     author: users->Belt.Map.String.get(r.authorPHID),
+//     repository: repos->Belt.Map.String.get(r.repositoryPHID),
+//     diff: diffs->Belt.Map.String.get(r.diffPHID),
+//   })
+//   let revisions = Revision.organize(person, revisions);
+//   C.resolve((person, revisions));
+// };
 
 let fetchGithubData = () => {
   module C = Lets.Async.Result;
   let repo = "Khan/mobile";
-  print_endline("Fetching data");
   let%C person = Api.GitHub.whoAmI;
-  print_endline("Person");
   let%C revisions = Api.GitHub.getPRs(repo);
-  print_endline("Done with revisions");
-  // let users = Api.getUsers(revisions->Belt.List.map(r => r.Revision.authorPHID));
-  // let repos = Api.getRepositories(revisions->Belt.List.map(r => r.repositoryPHID));
-  // let diffs = Api.getDiffs(revisions->Belt.List.map(r => r.diffPHID));
-  // let%C users = users;
-  // let%C repos = repos;
-  // let%C diffs = diffs;
-  // let revisions = revisions->Belt.List.map(r => {
-  //   ...r,
-  //   author: users->Belt.Map.String.get(r.authorPHID),
-  //   repository: repos->Belt.Map.String.get(r.repositoryPHID),
-  //   diff: diffs->Belt.Map.String.get(r.diffPHID),
-  // })
-  let revisions = Revision.organize(person, revisions);
-  C.resolve((person, revisions));
+  let%C teams = Api.GitHub.getTeams();
+  let person = {...person, team_ids: teams->Belt.List.map(team => team.id)};
+  let%C revisionsWithReviews =
+    Lets.Async.Result.all(
+      revisions->Belt.List.map(revision => {
+        let%C reviews = Api.GitHub.getReviews(repo, revision.number);
+        let%C checks = Api.GitHub.getChecks(repo, revision.head.sha);
+        C.resolve({...revision, reviews, checks});
+      }),
+    );
+  C.resolve((person, revisionsWithReviews));
 };
 
-let makeTitle = (revisions: Revision.all) => {
-  let items = [
-    (revisions.mine.accepted, "✅"),
-    (revisions.mine.needsRevision, "❌"),
-    (revisions.theirs.needsReview, "🙏"),
-  ]
-  ->Belt.List.keepMap(((items, emoji)) => {
-    let items = items->Belt.List.keep(r => !r.snoozed);
-    items === []
-      ? None
-      : Some(
-          emoji ++ " " ++ string_of_int(List.length(items)),
-        )
-  });
+let isMine = (me: Data.PR.user, revision: Data.PR.t) => {
+  revision.user.login == me.login;
+};
+
+let needsMyReview = (me: Data.PR.user, revision: Data.PR.t) => {
+  revision.requested_reviewers->Belt.List.some(req => req.login == me.login)
+  || revision.requested_teams
+     ->Belt.List.some(req => me.team_ids->Belt.List.has(req.id, (==)));
+};
+
+let isWaiting = (revision: Data.PR.t) => {
+  revision.checks == []
+  || revision.mergeable == None
+  || revision.reviews == []
+  && (revision.requested_reviewers != [] || revision.requested_teams != [])
+  || revision.checks->Belt.List.some(Data.Check.isPending)
+  || revision.reviews->Belt.List.some(review => review.state === "PENDING");
+};
+
+let needsAction = (revision: Data.PR.t) => {
+  revision.mergeable == Some(false)
+  || revision.checks->Belt.List.some(Data.Check.isFailed)
+  || revision.reviews
+     ->Belt.List.some(review => review.state === "CHANGES_REQUESTED");
+};
+
+let isLandable = (revision: Data.PR.t) => {
+  !isWaiting(revision) && !needsAction(revision);
+};
+
+let makeTitle = (me: Data.PR.user, revisions: list(Data.PR.t)) => {
+  let mine = revisions->Belt.List.keep(isMine(me));
+  let landable = mine->Belt.List.keep(isLandable);
+  let needAction = mine->Belt.List.keep(needsAction);
+  let needReview = revisions->Belt.List.keep(needsMyReview(me));
+  let waiting = mine->Belt.List.keep(isWaiting);
+
+  let items =
+    [
+      (landable, "✅"),
+      (needAction, "❌"),
+      (needReview, "🙏"),
+      (waiting, "⌛"),
+    ]
+    ->Belt.List.keepMap(((items, emoji))
+        // let items = items->Belt.List.keep(r => !r.snoozed);
+        =>
+          items === []
+            ? None : Some(emoji ++ " " ++ string_of_int(List.length(items)))
+        );
+  print_endline("Made title");
+
+  // if (landable != []) {
+  //   items := [("✅" ++ " " ++ string_of_int(landable->List.length)), ...items^];
+  // };
+
+  // let items = items^;
+
+  // let items = [
+  //   (revisions.mine.accepted, "✅"),
+  //   (revisions.mine.needsRevision, "❌"),
+  //   (revisions.theirs.needsReview, "🙏"),
+  // ]
+  // ->Belt.List.keepMap(((items, emoji)) => {
+  //   let items = items->Belt.List.keep(r => !r.snoozed);
+  //   items === []
+  //     ? None
+  //     : Some(
+  //         emoji ++ " " ++ string_of_int(List.length(items)),
+  //       )
+  // });
 
   if (items === []) {
-    "🐶"
+    "🐶";
   } else {
     items |> String.concat(" · ");
-  }
+  };
 };
 
 let setCancellableTimeout = (fn, tm) => {
   let cancelled = ref(false);
-  setTimeout(() => {
-    if (!cancelled^) {
-      fn();
-    }
-  }, tm);
+  setTimeout(
+    () =>
+      if (! cancelled^) {
+        fn();
+      },
+    tm,
+  );
   () => cancelled := true;
 };
 
 let refreshTime = 5 * 60 * 1000;
 // let refreshTime = 3 * 1000;
 
-let updateSnoozed = revisions =>  {
+let updateSnoozed = revisions => {
   let now = Unix.time();
-  revisions->Revision.map(Belt.List.map(_, Config.setSnoozed(Config.current^, now)));
+  revisions->Revision.map(__x =>
+    Belt.List.map(__x, Config.setSnoozed(Config.current^, now))
+  );
 };
 
 Printexc.record_backtrace(true);
@@ -265,12 +530,12 @@ let%component main = (~assetsDir, ~refresh, ~setTitle, hooks) => {
     print_endline("Snoozing " ++ phid);
     // Gc.full_major();
     switch (data) {
-      | None => ()
-      | Some((p, r)) =>
-        Config.toggleSnoozed(phid, until);
-        let revisions = updateSnoozed(r);
-        setTitle(Fluid.App.String(makeTitle(revisions)));
-        setData(Some((p, revisions)))
+    | None => ()
+    | Some((p, r)) =>
+      Config.toggleSnoozed(phid, until);
+      // let revisions = updateSnoozed(r);
+      setTitle(Fluid.App.String(makeTitle(p, r)));
+      setData(Some((p, r)));
     };
   };
   /* print_endline("render"); */
@@ -284,15 +549,16 @@ let%component main = (~assetsDir, ~refresh, ~setTitle, hooks) => {
           setRefreshing(true);
           let%Lets.Async.Consume result = fetchGithubData();
           /* print_endline("Fetched"); */
-          switch result {
-            | Error(error) =>
-              setTitle(String("⌛"));
-              setData(None);
-            | Ok((person, revisions)) =>
-              let revisions = updateSnoozed(revisions);
-              setTitle(Fluid.App.String(makeTitle(revisions)));
-              /* print_endline("a"); */
-              setData(Some((person, revisions)));
+          switch (result) {
+          | Error(error) =>
+            print_endline("Failed to fetch " ++ error);
+            setTitle(String("⌛"));
+            setData(None);
+          | Ok((person, revisions)) =>
+            // let revisions = updateSnoozed(revisions);
+            setTitle(Fluid.App.String(makeTitle(person, revisions)));
+            /* print_endline("a"); */
+            setData(Some((person, revisions)));
           };
           /* print_endline("b"); */
           setRefreshing(false);
@@ -313,56 +579,68 @@ let%component main = (~assetsDir, ~refresh, ~setTitle, hooks) => {
       ~width=500.,
       ~maxHeight=800.,
       /* ~height=500., */
-      ()
-    )}
-  >
-    {str(~layout=Layout.style(~position=Absolute, ~top=5., ~right=10., ()), refreshing ? "🕓" : "")}
+      (),
+    )}>
+    {str(
+       ~layout=Layout.style(~position=Absolute, ~top=5., ~right=10., ()),
+       refreshing ? "🕓" : "",
+     )}
     {switch (data) {
-      | None => str("⌛ loading...")
-      | Some((
-          person,
-          revisions,
-        )) =>
-    <scrollView
-      layout={Layout.style(
-        /* ~flexGrow=1., */
-        ~alignItems=AlignStretch,
-        ~alignSelf=AlignStretch,
-        ~overflow=Scroll,
-        (),
-      )}
-    >
-      <view layout={Layout.style(~alignItems=AlignStretch, ())}>
-        <view layout={Layout.style(~alignItems=AlignStretch, ())}>
-          <revisionList title="✅ Ready to land" 
-          snoozeItem
-          revisions={revisions.mine.accepted} />
-          <revisionList
-            title="❌ Ready to update"
-            snoozeItem
-            revisions={revisions.mine.needsRevision}
-          />
-          <revisionList
-            title="🙏 Ready to review"
-            snoozeItem
-            revisions={revisions.theirs.needsReview}
-          />
-          <revisionList title="⌛ Waiting on review"
-            snoozeItem
-            revisions={revisions.mine.needsReview}
-          />
-          <revisionList title="⌛❌ Waiting for them to change"
-            snoozeItem
-            revisions={revisions.theirs.needsRevision}
-          />
-          <revisionList title="⌛✅ Waiting for them to land"
-            snoozeItem
-            revisions={revisions.theirs.accepted}
-          />
-        </view>
-      </view>
-    </scrollView>
-         }}
+     | None => str("⌛ loading...")
+     | Some((person, revisions)) =>
+       let mine = revisions->Belt.List.keep(isMine(person));
+       let theirs = revisions->Belt.List.keep(r => !isMine(person, r));
+       let landable = mine->Belt.List.keep(isLandable);
+       let needAction = mine->Belt.List.keep(needsAction);
+       let needReview = revisions->Belt.List.keep(needsMyReview(person));
+       let waiting = mine->Belt.List.keep(isWaiting);
+
+       <scrollView
+         layout={Layout.style(
+           /* ~flexGrow=1., */
+           ~alignItems=AlignStretch,
+           ~alignSelf=AlignStretch,
+           ~overflow=Scroll,
+           (),
+         )}>
+         <view layout={Layout.style(~alignItems=AlignStretch, ())}>
+           <view layout={Layout.style(~alignItems=AlignStretch, ())}>
+             // {str("Hello")}
+
+               <revisionList
+                 title="✅ Ready to land"
+                 snoozeItem
+                 revisions=landable
+               />
+               <revisionList
+                 title="❌ Ready to update"
+                 snoozeItem
+                 revisions=needAction
+               />
+               <revisionList
+                 title="🙏 Ready to review"
+                 snoozeItem
+                 revisions=needReview
+               />
+               <revisionList
+                 title="⌛ Waiting"
+                 snoozeItem
+                 revisions=waiting
+               />
+               <revisionList
+                 title="⌛❌ Waiting for them to change"
+                 snoozeItem
+                 revisions={theirs->Belt.List.keep(needsAction)}
+               />
+               <revisionList
+                 title="⌛✅ Waiting for them to land"
+                 snoozeItem
+                 revisions={theirs->Belt.List.keep(isLandable)}
+               />
+             </view>
+         </view>
+       </scrollView>;
+     }}
   </view>;
 };
 
@@ -370,48 +648,52 @@ let run = assetsDir => {
   Fluid.App.launch(
     ~isAccessory=true,
     () => {
-    Fluid.App.setupAppMenu(
-      ~title="Phabrador",
-      ~appItems=[||],
-      ~menus=[| Fluid.App.defaultEditMenu() |]
-    );
+      Fluid.App.setupAppMenu(
+        ~title="Phabrador",
+        ~appItems=[||],
+        ~menus=[|Fluid.App.defaultEditMenu()|],
+      );
 
-    let closeWindow = ref(() => ());
+      let closeWindow = ref(() => ());
 
-    let statusBarItem = ref(None);
+      let statusBarItem = ref(None);
 
-    let refresh = ref(() => ());
+      let refresh = ref(() => ());
 
-    let win = Fluid.launchWindow(
-      ~title="Phabrador",
-      ~floating=true,
-      ~hidden=true,
-      ~onResize=({width, height}, window) => {
-        window->Fluid.Window.resize({x: width, y: height})
-      },
-      ~onBlur=win => {
-        Fluid.Window.hide(win);
-      },
-      <main
-        assetsDir
-        refresh
-        setTitle={title => switch (statusBarItem^) {
-          | None => ()
-          | Some(item) => Fluid.App.statusBarSetTitle(item, title)
-        }}
-      />
-    );
+      let win =
+        Fluid.launchWindow(
+          ~title="Phabrador",
+          ~floating=true,
+          ~hidden=true,
+          ~onResize=
+            ({width, height}, window) =>
+              window->Fluid.Window.resize({x: width, y: height}),
+          ~onBlur=win => Fluid.Window.hide(win),
+          <main
+            assetsDir
+            refresh
+            setTitle={title =>
+              switch (statusBarItem^) {
+              | None => ()
+              | Some(item) => Fluid.App.statusBarSetTitle(item, title)
+              }
+            }
+          />,
+        );
 
-    closeWindow := () => Fluid.Window.hide(win);
+      closeWindow := (() => Fluid.Window.hide(win));
 
-    statusBarItem := Some(Fluid.App.statusBarItem(
-      ~isVariableLength=true,
-      ~title=String("⌛"),
-      ~onClick=pos => {
-        refresh^();
-        Fluid.Window.showAtPos(win, pos)
-      }
-    ));
-  });
-
+      statusBarItem :=
+        Some(
+          Fluid.App.statusBarItem(
+            ~isVariableLength=true,
+            ~title=String("⌛"),
+            ~onClick=pos => {
+              refresh^();
+              Fluid.Window.showAtPos(win, pos);
+            },
+          ),
+        );
+    },
+  );
 };

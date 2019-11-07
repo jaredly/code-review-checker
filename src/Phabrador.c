@@ -9,6 +9,13 @@ CAMLprim value phabrador_homeDirectory() {
   // CAMLreturn(caml_copy_string("/Users/jared"));
 }
 
+CAMLprim value phabrador_isDarkMode() {
+  CAMLparam0();
+  BOOL isDarkMode = [[[NSUserDefaults standardUserDefaults] stringForKey:@"AppleInterfaceStyle"]
+                     isEqualToString:@"Dark"];
+  CAMLreturn(Val_bool(isDarkMode));
+}
+
 void phabrador_setTimeout(value callback, value milis_v) {
   CAMLparam2(callback, milis_v);
   int64_t milis = Int_val(milis_v);

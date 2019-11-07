@@ -117,6 +117,12 @@ let dateParser =
   ODate.Unix.From.generate_parser(ODate.Unix.Format.iso)->Lets.Opt.force;
 
 module RJson = {
+  let getString = (x, y) =>
+    switch (Json.get(x, y)) {
+    | None => Error("Unable to get " ++ x)
+    | Some(Json.String(x)) => Ok(x)
+    | Some(_) => Error(x ++ " is not a string")
+    };
   let get = (x, y) =>
     switch (Json.get(x, y)) {
     | None => Error("Unable to get " ++ x)
@@ -186,6 +192,7 @@ module PR = {
     id: int,
     avatar_url: string,
     html_url: string,
+    team_ids: list(int),
   };
 
   let parseUser = data => {
@@ -197,7 +204,7 @@ module PR = {
     let%F avatar_url = data |> RJson.get("avatar_url") |?> RJson.string;
     let%F html_url = data |> RJson.get("html_url") |?> RJson.string;
 
-    Ok({login, id, avatar_url, html_url});
+    Ok({login, id, avatar_url, html_url, team_ids: []});
   };
   type label = {
     name: string,
@@ -252,6 +259,29 @@ module PR = {
 
     Ok({label, user, repo, ref, sha});
   };
+  type review = {
+    id: int,
+    user: user,
+    body: string,
+    state: string,
+    html_url: string,
+  };
+  type check_output = {
+    title: option(string),
+    summary: option(string),
+    text: option(string),
+    annotations_count: int,
+  };
+  type check = {
+    id: int,
+    head_sha: string,
+    status: string,
+    conclusion: option(string),
+    started_at: string,
+    completed_at: option(string),
+    output: check_output,
+    name: string,
+  };
   type t = {
     number: int,
     state: string,
@@ -266,8 +296,11 @@ module PR = {
     assignees: list(user),
     requested_reviewers: list(user),
     requested_teams: list(team),
+    reviews: list(review),
+    checks: list(check),
     head: branch,
     base: branch,
+    mergeable: option(bool),
   };
 
   let parse = result => {
@@ -280,6 +313,7 @@ module PR = {
     let%F body = result |> RJson.get("body") |?> RJson.string;
     let%F created_at = result |> RJson.get("created_at") |?> RJson.string;
     let%F updated_at = result |> RJson.get("updated_at") |?> RJson.string;
+    let mergeable = Json.Infix.(result |> Json.get("mergeable") |?> Json.bool);
     let merged_at =
       result |> RJson.get("merged_at") |?> RJson.string |> Lets.Try.ok;
 
@@ -320,6 +354,9 @@ module PR = {
       requested_teams,
       head,
       base,
+      mergeable,
+      reviews: [],
+      checks: [],
     });
     // Some({
     //   phid,
@@ -333,6 +370,54 @@ module PR = {
     // });
   };
 };
+
+module Check = {
+  let isPending = (check: PR.check) => check.status != "completed";
+  let isFailed = (check: PR.check) => check.status == "completed" && (check.conclusion != Some("success") && check.conclusion != Some("neutral"));
+  let parse = (result) => {
+    module F = Lets.Try;
+    open RJson.Infix;
+    let%F id = result |> RJson.get("id") |?> RJson.number |?>> int_of_float;
+    let%F head_sha = result |> RJson.getString("head_sha");
+    let%F status = result |> RJson.getString("status");
+    let conclusion = result |> RJson.getString("conclusion") |> Lets.Try.ok;
+    let%F started_at = result |> RJson.getString("started_at");
+    let completed_at = result |> RJson.getString("completed_at") |> Lets.Try.ok;
+    let%F name = result |> RJson.getString("name");
+    let outputObj = result |> RJson.get("output");
+    let title = outputObj |?> RJson.getString("title") |> Lets.Try.ok;
+    let summary = outputObj |?> RJson.getString("summary") |> Lets.Try.ok;
+    let text = outputObj |?> RJson.getString("text") |> Lets.Try.ok;
+    let%F annotations_count = outputObj |?> RJson.get("annotations_count") |?> RJson.number |?>> int_of_float;
+    let output: PR.check_output = {
+      title, summary, text, annotations_count,
+    }
+    Ok({
+      id,
+      head_sha,
+      status,
+      conclusion,
+      started_at,
+      completed_at,
+      output,
+      name,
+    }: PR.check)
+  }
+}
+
+module Review = {
+  let parse = result => {
+    module F = Lets.Try;
+    open RJson.Infix;
+    let%F id = result |> RJson.get("id") |?> RJson.number |?>> int_of_float;
+    let%F user = result |> RJson.get("user") |?> PR.parseUser;
+    let%F body = result |> RJson.get("body") |?> RJson.string;
+    let%F state = result |> RJson.get("state") |?> RJson.string;
+    let%F html_url = result |> RJson.get("html_url") |?> RJson.string;
+
+    Ok({PR.id, user, body, state, html_url})
+  }
+}
 
 module Revision = {
   type t = {

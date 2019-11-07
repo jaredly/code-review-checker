@@ -259,6 +259,7 @@ module GitHub = {
                 "application/vnd.github.symmetra-preview+json",
                 "application/json",
                 "application/vnd.github.hellcat-preview+json",
+                "application/vnd.github.antiope-preview+json",
               ],
             ),
           ),
@@ -268,7 +269,7 @@ module GitHub = {
     if (debug^) {
       Files.writeFileExn(
         "./.cache/"
-        ++ Str.global_replace(Str.regexp("[^a-zA-Z]"), "-", endp)
+        ++ Str.global_replace(Str.regexp("[^a-zA-Z0-9_]"), "-", endp)
         ++ ".json",
         body,
       );
@@ -306,12 +307,25 @@ module GitHub = {
     {
       let%Lets.Async.Result result = call("user", []);
       print_endline("Got result");
-      let%Lets.Try.Force person = Data.Person.parseGithub(result);
-      print_endline("Person " ++ person.realName);
+      let%Lets.Try.Force person = Data.PR.parseUser(result);
+      print_endline("Person " ++ person.login);
       Lets.Async.Result.resolve(person);
     }(
       cb,
     );
+
+  let getTeams = () => {
+    let%Lets.Async.Result result =
+      call(
+        "user/teams",
+        [],
+      );
+    open Json.Infix;
+    let%Lets.Opt.Force data = result |> Json.array;
+    Lets.Async.Result.resolve(
+      data->Belt.List.keepMap(item => Data.PR.parseTeam(item) |> Lets.Try.ok),
+    );
+  };
 
   let getPRs = repo => {
     let%Lets.Async.Result result =
@@ -323,6 +337,32 @@ module GitHub = {
     let%Lets.Opt.Force data = result |> Json.array;
     Lets.Async.Result.resolve(
       data->Belt.List.keepMap(item => Data.PR.parse(item) |> Lets.Try.ok),
+    );
+  };
+
+  let getChecks = (repo, sha) => {
+    let%Lets.Async.Result result =
+      call(
+        "repos/" ++ repo ++ "/commits/" ++ sha ++ "/check-runs",
+        [],
+      );
+    open Json.Infix;
+    let%Lets.Opt.Force data = result |> Json.get("check_runs") |?> Json.array;
+    Lets.Async.Result.wrap(
+      data|> Data.tryMap(Data.Check.parse),
+    );
+  };
+
+  let getReviews = (repo, pr) => {
+    let%Lets.Async.Result result =
+      call(
+        "repos/" ++ repo ++ "/pulls/" ++ string_of_int(pr) ++ "/reviews",
+        [],
+      );
+    open Json.Infix;
+    let%Lets.Opt.Force data = result |> Json.array;
+    Lets.Async.Result.wrap(
+      data|> Data.tryMap(Data.Review.parse),
     );
   };
 
