@@ -456,7 +456,7 @@ let makeTitle = (me: Data.PR.user, revisions: list(Data.PR.t)) => {
       (landable, "✅"),
       (needAction, "❌"),
       (needReview, "🙏"),
-      (waiting, "⌛"),
+    //   (waiting, "⌛"),
     ]
     ->Belt.List.keepMap(((items, emoji))
         // let items = items->Belt.List.keep(r => !r.snoozed);
