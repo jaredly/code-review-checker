@@ -156,6 +156,11 @@ module Phabricator = {
 
 };
 
+let yamlErr = v => switch v {
+  | Ok(v) => Ok(v)
+  | Error(`Msg(s)) => Error(Failure(s))
+};
+
 module GitHub = {
   let getAuth = () => {
     let fpath = Filename.concat(homeDirectory(), ".config/hub");
@@ -167,14 +172,18 @@ module GitHub = {
     } else {
       print_endline("Found!");
     };
-    let%Lets.TryForce data = try%Lets.Try (Yaml.of_string(Files.readFileExn(fpath))) {
-      | `Msg(str) => Error(Failure(str))
-    };
+    let%Lets.TryForce data = Yaml.of_string(Files.readFileExn(fpath))->yamlErr;
+    let%Lets.TryForce str = Yaml.to_string(data)->yamlErr;
+    print_endline(str);
     let%Lets.TryForce token = switch data {
       | `O([("github.com", `O(body)), ..._]) => switch (List.assoc("oauth_token", body)) {
         | exception _ => Error(Failure("No oauth_token or malformed yaml"))
         | `String(token) => Ok(token)
         | _ => Error(Failure("No oauth_token or malformed yaml"))
+      }
+      | `O(items) => {
+        // items->Belt.
+        Error(Failure("Items"))
       }
       | _ => Error(Failure("No github.com entry or malformed yaml"))
     };

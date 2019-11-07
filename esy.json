@@ -15,7 +15,7 @@
   "dependencies": {
     "ocaml": "4.7.0",
     "@opam/yaml": "*",
-    "@opam/dune": "*",
+    "@opam/dune": "1.7.1",
     "@opam/reason": "*",
     "@opam/odate": "*",
     "let-anything-esy": "*",
