@@ -88,6 +88,22 @@ module Try = {
       failwith("Force unwrapped an Error()");
     | Ok(v) => v
     };
+  let ok = t => {
+    switch t {
+      | Ok(a) => Some(a)
+      | Error(e) => {
+        print_endline(e);
+        None
+      }
+    }
+  }
+  module Force = {
+    let force = t => switch t {
+      | Ok(t) => t
+      | Error(e) => failwith("Force unwrapped an Error(): " ++ e)
+    };
+    let let_: (result('a, string), 'a => 'b) => 'b = (a, b) => b(force(a));
+  }
 };
 
 module TryWrap = {

@@ -170,8 +170,11 @@ let%component revisionList = (
 
 let fetchData = () => {
   module C = Lets.Async.Result;
+  print_endline("Fetching data");
   let%C person = Api.whoAmI;
+  print_endline("Person");
   let%C revisions = Api.getRevisions(person);
+  print_endline("Done with revisions");
   let users = Api.getUsers(revisions->Belt.List.map(r => r.Revision.authorPHID));
   let repos = Api.getRepositories(revisions->Belt.List.map(r => r.repositoryPHID));
   let diffs = Api.getDiffs(revisions->Belt.List.map(r => r.diffPHID));
@@ -184,6 +187,30 @@ let fetchData = () => {
     repository: repos->Belt.Map.String.get(r.repositoryPHID),
     diff: diffs->Belt.Map.String.get(r.diffPHID),
   })
+  let revisions = Revision.organize(person, revisions);
+  C.resolve((person, revisions));
+};
+
+let fetchGithubData = () => {
+  module C = Lets.Async.Result;
+  let repo = "Khan/mobile";
+  print_endline("Fetching data");
+  let%C person = Api.GitHub.whoAmI;
+  print_endline("Person");
+  let%C revisions = Api.GitHub.getPRs(repo);
+  print_endline("Done with revisions");
+  // let users = Api.getUsers(revisions->Belt.List.map(r => r.Revision.authorPHID));
+  // let repos = Api.getRepositories(revisions->Belt.List.map(r => r.repositoryPHID));
+  // let diffs = Api.getDiffs(revisions->Belt.List.map(r => r.diffPHID));
+  // let%C users = users;
+  // let%C repos = repos;
+  // let%C diffs = diffs;
+  // let revisions = revisions->Belt.List.map(r => {
+  //   ...r,
+  //   author: users->Belt.Map.String.get(r.authorPHID),
+  //   repository: repos->Belt.Map.String.get(r.repositoryPHID),
+  //   diff: diffs->Belt.Map.String.get(r.diffPHID),
+  // })
   let revisions = Revision.organize(person, revisions);
   C.resolve((person, revisions));
 };
@@ -255,7 +282,7 @@ let%component main = (~assetsDir, ~refresh, ~setTitle, hooks) => {
         let rec loop = () => {
           cancel^();
           setRefreshing(true);
-          let%Lets.Async.Consume result = fetchData();
+          let%Lets.Async.Consume result = fetchGithubData();
           /* print_endline("Fetched"); */
           switch result {
             | Error(error) =>
