@@ -26,37 +26,54 @@ let kwargs = items =>
   );
 
 let imageTbl = Hashtbl.create(10);
-let getImage = (src, onDone) => {
+// let getImage = (src, onDone) => {
+//   switch (Hashtbl.find(imageTbl, src)) {
+//   | exception Not_found =>
+//     print_endline("Getting " ++ src);
+//     FluidMac.Fluid.NativeInterface.preloadImage(
+//       ~src,
+//       ~onDone=loadedImage => {
+//         print_endline("Got " ++ src);
+//         Hashtbl.replace(imageTbl, src, loadedImage);
+//         onDone(loadedImage);
+//       },
+//     )
+//   | img => onDone(img)
+//   };
+// };
+
+let preloadImage = (src, onDone) => {
   switch (Hashtbl.find(imageTbl, src)) {
   | exception Not_found =>
+    Hashtbl.replace(imageTbl, src, None);
     print_endline("Getting " ++ src);
     FluidMac.Fluid.NativeInterface.preloadImage(
       ~src,
       ~onDone=loadedImage => {
         print_endline("Got " ++ src);
-        Hashtbl.replace(imageTbl, src, loadedImage);
-        onDone(loadedImage);
+        Hashtbl.replace(imageTbl, src, Some(loadedImage));
+        onDone()
       },
     )
-  | img => onDone(img)
+  | _ => onDone()
   };
 };
 
 let cachedImage = (src) => {
   switch (Hashtbl.find(imageTbl, src)) {
   | exception Not_found => 
-    FluidMac.Fluid.NativeInterface.preloadImage(
-      ~src,
-      ~onDone=loadedImage => {
-        print_endline("Got " ++ src);
-        Hashtbl.replace(imageTbl, src, loadedImage);
-        // onDone(loadedImage);
-      },
-    )
+    // Hashtbl.replace(imageTbl, src, None);
+    // FluidMac.Fluid.NativeInterface.preloadImage(
+    //   ~src,
+    //   ~onDone=loadedImage => {
+    //     print_endline("Got " ++ src);
+    //     Hashtbl.replace(imageTbl, src, Some(loadedImage));
+    //     // onDone(loadedImage);
+    //   },
+    // )
   None
-  | img => Some(img)
+  | img => img
   };
-
 }
 
 let debug = ref(false);
@@ -175,15 +192,15 @@ module Phabricator = {
     let%Lets.Opt.Force data = result |> Json.array;
     /* let%Lets.Async */
     let people = data->Belt.List.keepMap(Data.Person.parse);
-    let people =
-      people->Belt.List.map((person, cb) =>
-        getImage(person.image, loadedImage
-          => cb({...person, loadedImage: Some(loadedImage)}))
-          // FluidMac.Fluid.NativeInterface.preloadImage(~src=person.image, ~onDone=loadedImage => {
-          //   cb({...person, loadedImage: Some(loadedImage)})
-          // })
-      );
-    let%Lets.Async people = Lets.Async.all(people);
+    // let people =
+    //   people->Belt.List.map((person, cb) =>
+    //     getImage(person.image, loadedImage
+    //       => cb({...person, loadedImage: Some(loadedImage)}))
+    //       // FluidMac.Fluid.NativeInterface.preloadImage(~src=person.image, ~onDone=loadedImage => {
+    //       //   cb({...person, loadedImage: Some(loadedImage)})
+    //       // })
+    //   );
+    // let%Lets.Async people = Lets.Async.all(people);
     Lets.Async.Result.resolve(
       people->Belt.List.reduce(Belt.Map.String.empty, (map, person) =>
         Belt.Map.String.set(map, person.phid, person)
@@ -327,6 +344,7 @@ module GitHub = {
       let%Lets.Async.Result result = call("user", []);
       print_endline("Got result");
       let%Lets.Try.Force person = Data.PR.parseUser(result);
+      let%Lets.Async () = preloadImage(person.avatar_url);
       print_endline("Person " ++ person.login);
       Lets.Async.Result.resolve(person);
     }(
@@ -356,10 +374,11 @@ module GitHub = {
     let%Lets.Opt.Force data = result |> Json.array;
     let prs = data -> Belt.List.keepMap(item => Data.PR.parse(item) -> Lets.Try.ok)
     // let%Lets.Async.Result prs = Lets.Async.Result.wrap(data |> Data.tryMap(item => Data.PR.parse(item)));
-    let%Lets.Async.Result prs = Lets.Async.Result.all(prs->Belt.List.map((pr, cb) => {
-        getImage(pr.user.avatar_url, loadedImage
-          => cb(Ok({...pr, user: {...pr.user, loadedImage: Some(loadedImage)}})))
-    }));
+    let%Lets.Async.Result _ = Lets.Async.Result.all(prs->Belt.List.map((pr, cb) => preloadImage(pr.user.avatar_url, () => cb(Ok(())))));
+    // let%Lets.Async.Result prs = Lets.Async.Result.all(prs->Belt.List.map((pr, cb) => {
+    //     getImage(pr.user.avatar_url, loadedImage
+    //       => cb(Ok({...pr, user: {...pr.user, loadedImage: Some(loadedImage)}})))
+    // }));
     Lets.Async.Result.resolve(
       prs
     );
@@ -400,6 +419,7 @@ module GitHub = {
     let%Lets.Opt.Force data = result |> Json.array;
     let%Lets.Async.Result reviews = Lets.Async.Result.wrap(data |> Data.tryMap(Data.Review.parse));
 
+    // let%Lets.Async _ = Lets.Async.all(reviews -> Belt.List.map(review => preloadImage(review.user.avatar_url)));
     // let%Lets.Async.Result reviews = Lets.Async.Result.all(reviews->Belt.List.map((review, cb) => {
     //     getImage(review.user.avatar_url, loadedImage
     //       => {
@@ -410,6 +430,14 @@ module GitHub = {
     
     Lets.Async.Result.resolve(reviews)
   };
+
+  let preloadReviewerAvis = (prs: list(Data.PR.t)) => {
+    let thunks = List.concat(
+      prs->Belt.List.map(pr => pr.reviews->Belt.List.map(review => preloadImage(review.user.avatar_url)))
+    );
+    let%Lets.Async _ = Lets.Async.all(thunks);
+    Lets.Async.resolve(())
+  }
 
   // let getUsers = phids => {
   //   let phids = unique(phids);

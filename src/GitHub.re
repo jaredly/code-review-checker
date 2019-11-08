@@ -194,20 +194,20 @@ let%component revision = (~rev: Data.PR.t, ~snoozeItem, hooks) => {
             <image
               src={
                 switch (Api.cachedImage(author.avatar_url)) {
-                  | None => 
-                  print_endline("Uncached " ++ author.login);
-                  Plain(author.avatar_url)
-                  | Some(i) => Preloaded(i)
-                }
+                | None =>
+                  // print_endline("Uncached " ++ author.login);
+                  Plain(author.avatar_url);
+                | Some(i) => Preloaded(i)
                 // Plain(
                 //   author.avatar_url,
                 // )
+                }
               }
               layout={Layout.style(~margin=3., ~width=30., ~height=30., ())}
             />
             <button
               layout={Layout.style(~left=-5., ())}
-              onPress={() => openUrl(Api.diffUrl(rev.number))}
+              onPress={() => openUrl(Api.GitHub.diffUrl(rev.number))}
               title="Go"
             />
           </view>
@@ -245,34 +245,33 @@ let%component revision = (~rev: Data.PR.t, ~snoozeItem, hooks) => {
                 // ->Belt.List.sort((a, b) => compare(a.name, b.name))
                 ->Belt.List.map(review =>
                     <view layout={Layout.style(~flexDirection=Row, ())}>
-
-                        <image
-                          src={
-                            switch (Api.cachedImage(review.user.avatar_url)) {
-                              | None => 
-                  print_endline("Uncached " ++ review.user.login);
-                              Plain(review.user.avatar_url)
-                              | Some(i) => Preloaded(i)
-                            }
-                            // Plain(
-                            //   review.user.avatar_url,
-                            // )
+                      <image
+                        src={
+                          switch (Api.cachedImage(review.user.avatar_url)) {
+                          | None =>
+                            // print_endline("Uncached " ++ review.user.login);
+                            Plain(review.user.avatar_url);
+                          | Some(i) => Preloaded(i)
+                          // Plain(
+                          //   review.user.avatar_url,
+                          // )
                           }
-                          layout={Layout.style(
-                            ~margin=3.,
-                            ~width=20.,
-                            ~height=20.,
-                            (),
-                          )}
-                        />
-                        {str(
-                           review.state == "CHANGES_REQUESTED"
-                             ? "❌"
-                             : review.state == "APPROVED" ? "✅" : "💬",
-                         )}
-                      </view>
-                      // {str(review.user.login)}
+                        }
+                        layout={Layout.style(
+                          ~margin=3.,
+                          ~width=20.,
+                          ~height=20.,
+                          (),
+                        )}
+                      />
+                      {str(
+                         review.state == "CHANGES_REQUESTED"
+                           ? "❌"
+                           : review.state == "APPROVED" ? "✅" : "💬",
+                       )}
+                    </view>
                   )
+                // {str(review.user.login)}
                 // {str(
                 //    ~font={
                 //      ...Fluid.NativeInterface.defaultFont,
@@ -411,6 +410,7 @@ let fetchGithubData = () => {
         C.resolve({...revision, reviews, checks});
       }),
     );
+  let%Lets.Async () = Api.GitHub.preloadReviewerAvis(revisionsWithReviews);
   C.resolve((person, revisionsWithReviews));
 };
 
@@ -419,18 +419,12 @@ let isMine = (me: Data.PR.user, revision: Data.PR.t) => {
 };
 
 let needsMyReview = (me: Data.PR.user, revision: Data.PR.t) => {
-  revision.requested_reviewers->Belt.List.some(req => req.login == me.login)
-  || revision.requested_teams
-     ->Belt.List.some(req => me.team_ids->Belt.List.has(req.id, (==)));
-};
-
-let isWaiting = (revision: Data.PR.t) => {
-  revision.checks == []
-  || revision.mergeable == None
-  || revision.reviews == []
-  && (revision.requested_reviewers != [] || revision.requested_teams != [])
-  || revision.checks->Belt.List.some(Data.Check.isPending)
-  || revision.reviews->Belt.List.some(review => review.state === "PENDING");
+  !isMine(me, revision)
+  && (
+    revision.requested_reviewers->Belt.List.some(req => req.login == me.login)
+    || revision.requested_teams
+       ->Belt.List.some(req => me.team_ids->Belt.List.has(req.id, (==)))
+  );
 };
 
 let needsAction = (revision: Data.PR.t) => {
@@ -438,6 +432,18 @@ let needsAction = (revision: Data.PR.t) => {
   || revision.checks->Belt.List.some(Data.Check.isFailed)
   || revision.reviews
      ->Belt.List.some(review => review.state === "CHANGES_REQUESTED");
+};
+
+let isWaiting = (revision: Data.PR.t) => {
+  !needsAction(revision) && (
+
+  revision.checks == []
+  || revision.mergeable == None
+  || revision.reviews == []
+  && (revision.requested_reviewers != [] || revision.requested_teams != [])
+  || revision.checks->Belt.List.some(Data.Check.isPending)
+  || revision.reviews->Belt.List.some(review => review.state === "PENDING")
+  )
 };
 
 let isLandable = (revision: Data.PR.t) => {
@@ -456,7 +462,7 @@ let makeTitle = (me: Data.PR.user, revisions: list(Data.PR.t)) => {
       (landable, "✅"),
       (needAction, "❌"),
       (needReview, "🙏"),
-    //   (waiting, "⌛"),
+      //   (waiting, "⌛"),
     ]
     ->Belt.List.keepMap(((items, emoji))
         // let items = items->Belt.List.keep(r => !r.snoozed);
@@ -576,71 +582,77 @@ let%component main = (~assetsDir, ~refresh, ~setTitle, hooks) => {
       /* ~height=500., */
       (),
     )}>
-    {str(
-       ~layout=Layout.style(~position=Absolute, ~top=5., ~right=10., ()),
-       refreshing ? "🕓" : "",
-     )}
-    {switch (data) {
-     | None => str("⌛ loading...")
-     | Some((person, revisions)) =>
-       let mine = revisions->Belt.List.keep(isMine(person));
-       let theirs = revisions->Belt.List.keep(r => !isMine(person, r));
-       let landable = mine->Belt.List.keep(isLandable);
-       let needAction = mine->Belt.List.keep(needsAction);
-       let needReview = revisions->Belt.List.keep(needsMyReview(person));
-       let waiting = mine->Belt.List.keep(isWaiting);
 
-       <scrollView
-         layout={Layout.style(
-           /* ~flexGrow=1., */
-           ~alignItems=AlignStretch,
-           ~alignSelf=AlignStretch,
-           ~overflow=Scroll,
-           (),
-         )}>
-         <view layout={Layout.style(~alignItems=AlignStretch, ())}>
+      {str(
+         ~layout=Layout.style(~position=Absolute, ~top=5., ~right=10., ()),
+         refreshing ? "🕓" : "",
+       )}
+      {switch (data) {
+       | None => str("⌛ loading...")
+       | Some((person, revisions)) =>
+         let mine = revisions->Belt.List.keep(isMine(person));
+         let theirs = revisions->Belt.List.keep(r => !isMine(person, r));
+         let landable = mine->Belt.List.keep(isLandable);
+         let needAction = mine->Belt.List.keep(needsAction);
+         let needReview = revisions->Belt.List.keep(needsMyReview(person));
+         let waiting = mine->Belt.List.keep(isWaiting);
+
+         <scrollView
+           layout={Layout.style(
+             /* ~flexGrow=1., */
+             ~alignItems=AlignStretch,
+             ~alignSelf=AlignStretch,
+             ~overflow=Scroll,
+             (),
+           )}>
            <view layout={Layout.style(~alignItems=AlignStretch, ())}>
-             // {str("Hello")}
+             <view layout={Layout.style(~alignItems=AlignStretch, ())}>
+               // {str("Hello")}
 
-               <revisionList
-                 title="✅ Ready to land"
-                 snoozeItem
-                 revisions=landable
-               />
-               <revisionList
-                 title="❌ Ready to update"
-                 snoozeItem
-                 revisions=needAction
-               />
-               <revisionList
-                 title="🙏 Ready to review"
-                 snoozeItem
-                 revisions=needReview
-               />
-               <revisionList
-                 title="⌛ Waiting"
-                 snoozeItem
-                 revisions=waiting
-               />
-               <revisionList
-                 title="⌛❌ Waiting for them to change"
-                 snoozeItem
-                 revisions={theirs->Belt.List.keep(needsAction)}
-               />
-               <revisionList
-                 title="⌛✅ Waiting for them to land"
-                 snoozeItem
-                 revisions={theirs->Belt.List.keep(isLandable)}
-               />
-             </view>
-         </view>
-       </scrollView>;
-     }}
+                 <revisionList
+                   title="✅ Ready to land"
+                   snoozeItem
+                   revisions=landable
+                 />
+                 <revisionList
+                   title="❌ Ready to update"
+                   snoozeItem
+                   revisions=needAction
+                 />
+                 <revisionList
+                   title="🙏 Ready to review"
+                   snoozeItem
+                   revisions=needReview
+                 />
+                 <revisionList
+                   title="⌛ Waiting"
+                   snoozeItem
+                   revisions=waiting
+                 />
+                 <revisionList
+                   title="⌛❌ Waiting for them to change"
+                   snoozeItem
+                   revisions={theirs->Belt.List.keep(needsAction)}
+                 />
+                 <revisionList
+                   title="⌛✅ Waiting for them to land"
+                   snoozeItem
+                   revisions={theirs->Belt.List.keep(isLandable)}
+                 />
+               </view>
+           </view>
+         </scrollView>;
+       }}
+      <button
+        layout=Layout.style(~position=Absolute, ~top=3., ~right=35., ())
+        onPress={() => openUrl("https://github.com/Khan/mobile/pulls")}
+        title="Open web"
+      />
+    </view>;
     //  <Phabrador.main
     //     assetsDir
     //     refresh
     //  />
-  </view>;
 };
 
 let run = assetsDir => {

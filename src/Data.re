@@ -191,7 +191,7 @@ module PR = {
     login: string,
     id: int,
     avatar_url: string,
-    loadedImage: option(FluidMac.Fluid.NativeInterface.image),
+    // loadedImage: option(FluidMac.Fluid.NativeInterface.image),
     html_url: string,
     team_ids: list(int),
   };
@@ -205,7 +205,7 @@ module PR = {
     let%F avatar_url = data |> RJson.get("avatar_url") |?> RJson.string;
     let%F html_url = data |> RJson.get("html_url") |?> RJson.string;
 
-    Ok({login, id, avatar_url, html_url, loadedImage: None, team_ids: []});
+    Ok({login, id, avatar_url, html_url, team_ids: []});
   };
   type label = {
     name: string,
