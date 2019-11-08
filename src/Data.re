@@ -4,6 +4,12 @@ let (|!!) = (a, b) =>
   | None => Error(b)
   };
 
+let dateParser =
+  ODate.Unix.From.generate_parser(ODate.Unix.Format.iso)->Lets.Opt.force;
+
+let toSeconds = text =>
+  ODate.Unix.From.string(dateParser, text)->ODate.Unix.To.seconds;
+
 module Person = {
   type t = {
     userName: string,
@@ -112,9 +118,6 @@ module Diff = {
     });
   };
 };
-
-let dateParser =
-  ODate.Unix.From.generate_parser(ODate.Unix.Format.iso)->Lets.Opt.force;
 
 module RJson = {
   let getString = (x, y) =>
@@ -266,6 +269,7 @@ module PR = {
     body: string,
     state: string,
     html_url: string,
+    submitted_at: string,
   };
   type check_output = {
     title: option(string),
@@ -314,7 +318,8 @@ module PR = {
     let%F body = result |> RJson.get("body") |?> RJson.string;
     let%F created_at = result |> RJson.get("created_at") |?> RJson.string;
     let%F updated_at = result |> RJson.get("updated_at") |?> RJson.string;
-    let mergeable = Json.Infix.(result |> Json.get("mergeable") |?> Json.bool);
+    let mergeable = Some(true);
+    // let mergeable = Json.Infix.(result |> Json.get("merge_commit_sha") |?> Json.bool);
     let merged_at =
       result |> RJson.get("merged_at") |?> RJson.string |> Lets.Try.ok;
 
@@ -407,6 +412,9 @@ module Check = {
 }
 
 module Review = {
+  let isAccepted = (r: PR.review) => r.PR.state == "APPROVED";
+  let isRejected = (r: PR.review) => r.PR.state == "CHANGES_REQUESTED";
+  let isConclusive = (r: PR.review) => isAccepted(r) || isRejected(r);
   let parse = result => {
     module F = Lets.Try;
     open RJson.Infix;
@@ -415,8 +423,9 @@ module Review = {
     let%F body = result |> RJson.get("body") |?> RJson.string;
     let%F state = result |> RJson.get("state") |?> RJson.string;
     let%F html_url = result |> RJson.get("html_url") |?> RJson.string;
+    let%F submitted_at = result |> RJson.get("submitted_at") |?> RJson.string;
 
-    Ok({PR.id, user, body, state, html_url})
+    Ok({PR.id, user, body, state, html_url, submitted_at})
   }
 }
 

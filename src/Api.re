@@ -409,7 +409,7 @@ module GitHub = {
     );
   };
 
-  let getReviews = (repo, pr) => {
+  let getReviews = (repo, pr, owner: Data.PR.user) => {
     let%Lets.Async.Result result =
       call(
         "repos/" ++ repo ++ "/pulls/" ++ string_of_int(pr) ++ "/reviews",
@@ -418,16 +418,22 @@ module GitHub = {
     open Json.Infix;
     let%Lets.Opt.Force data = result |> Json.array;
     let%Lets.Async.Result reviews = Lets.Async.Result.wrap(data |> Data.tryMap(Data.Review.parse));
-
-    // let%Lets.Async _ = Lets.Async.all(reviews -> Belt.List.map(review => preloadImage(review.user.avatar_url)));
-    // let%Lets.Async.Result reviews = Lets.Async.Result.all(reviews->Belt.List.map((review, cb) => {
-    //     getImage(review.user.avatar_url, loadedImage
-    //       => {
-    //         print_endline("Done " ++ review.user.avatar_url);
-    //         cb(Ok({...review, user: {...review.user, loadedImage: Some(loadedImage)}}))
-    //       })
-    // }));
-    
+    let seen = Hashtbl.create(5);
+    reviews->Belt.List.forEach(review => {
+      if (review.user.login != owner.login) {
+        switch (Hashtbl.find(seen, review.user.login)) {
+          | exception Not_found =>
+            Hashtbl.replace(seen, review.user.login, review);
+          | other =>
+          if ((other: Data.PR.review).state == review.state && Data.toSeconds(other.submitted_at) < Data.toSeconds(review.submitted_at)) {
+              Hashtbl.replace(seen, review.user.login, review);
+          } else if (!Data.Review.isConclusive(other)){
+              Hashtbl.replace(seen, review.user.login, review);
+          }
+        }
+      }
+    });
+    let reviews = Hashtbl.to_seq_values(seen)->List.of_seq->Belt.List.sort((a, b) => compare(Data.toSeconds(a.submitted_at), Data.toSeconds(b.submitted_at)));
     Lets.Async.Result.resolve(reviews)
   };
 
@@ -438,71 +444,6 @@ module GitHub = {
     let%Lets.Async _ = Lets.Async.all(thunks);
     Lets.Async.resolve(())
   }
-
-  // let getUsers = phids => {
-  //   let phids = unique(phids);
-  //   let%Lets.Async.Result result =
-  //     call(
-  //       "user.query",
-  //       phids->Belt.List.mapWithIndex((i, phid) =>
-  //         ("phids[" ++ string_of_int(i) ++ "]", phid)
-  //       ),
-  //     );
-  //   let%Lets.Opt.Force data = result |> Json.array;
-  //   /* let%Lets.Async */
-  //   let people = data->Belt.List.keepMap(Data.Person.parse);
-  //   let people =
-  //     people->Belt.List.map((person, cb) =>
-  //       getImage(person.image, loadedImage
-  //         => cb({...person, loadedImage: Some(loadedImage)}))
-  //         // FluidMac.Fluid.NativeInterface.preloadImage(~src=person.image, ~onDone=loadedImage => {
-  //         //   cb({...person, loadedImage: Some(loadedImage)})
-  //         // })
-  //     );
-  //   let%Lets.Async people = Lets.Async.all(people);
-  //   Lets.Async.Result.resolve(
-  //     people->Belt.List.reduce(Belt.Map.String.empty, (map, person) =>
-  //       Belt.Map.String.set(map, person.phid, person)
-  //     ),
-  //   );
-  // };
-
-  // let getRepositories = phids => {
-  //   let phids = unique(phids);
-  //   let%Lets.Async.Result result =
-  //     call(
-  //       "diffusion.repository.search",
-  //       phids->Belt.List.mapWithIndex((i, phid) =>
-  //         ("constraints[phids][" ++ string_of_int(i) ++ "]", phid)
-  //       ),
-  //     );
-  //   open Json.Infix;
-  //   let%Lets.Opt.Force data = result |> Json.get("data") |?> Json.array;
-  //   let repos = data->Belt.List.keepMap(Data.Repository.parse);
-  //   Lets.Async.Result.resolve(
-  //     repos->Belt.List.reduce(Belt.Map.String.empty, (map, repo) =>
-  //       Belt.Map.String.set(map, repo.phid, repo)
-  //     ),
-  //   );
-  // };
-
-  // let getDiffs = phids => {
-  //   let%Lets.Async.Result result =
-  //     call(
-  //       "differential.diff.search",
-  //       phids->Belt.List.mapWithIndex((i, phid) =>
-  //         ("constraints[phids][" ++ string_of_int(i) ++ "]", phid)
-  //       ),
-  //     );
-  //   open Json.Infix;
-  //   let%Lets.Opt.Force data = result |> Json.get("data") |?> Json.array;
-  //   let repos = data->Belt.List.keepMap(Data.Diff.parse);
-  //   Lets.Async.Result.resolve(
-  //     repos->Belt.List.reduce(Belt.Map.String.empty, (map, diff) =>
-  //       Belt.Map.String.set(map, diff.phid, diff)
-  //     ),
-  //   );
-  // };
 };
 
 include Phabricator;
