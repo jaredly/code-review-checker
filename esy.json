@@ -13,7 +13,7 @@
     "pkg": "sh -c 'cd bundler && ./bundle.sh'"
   },
   "dependencies": {
-    "ocaml": ">=4.7.0",
+    "ocaml": "4.8.0",
     "@opam/dune": "*",
     "@opam/reason": "*",
     "@opam/odate": "*",
@@ -24,8 +24,8 @@
   },
   "resolutions": {
     "fluid": "link:../../explorations/fluid/esy.json",
-    "@opam/odate": "link:../../fork/odate/package.json",
-    "RexJson": "link:../../libs/rex-json/esy.json",
+    "@opam/odate": "link:../../wont_move/fork/odate/package.json",
+    "RexJson": "link:../../moved/libs/rex-json/esy.json",
     "let-anything-esy": "link:../../tools/let-anything/publish-esy/package.json"
   }
 }
