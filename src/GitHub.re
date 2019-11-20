@@ -10,6 +10,9 @@ let str = Fluid.string;
 let gray = n => {r: n, g: n, b: n, a: 1.};
 
 external isDarkMode: unit => bool = "phabrador_isDarkMode";
+external openUrl: string => unit = "phabrador_openUrl";
+
+let revision = Revisionn.revision;
 
 module TimeoutTracker =
   FluidMac.Tracker({
@@ -42,7 +45,7 @@ let%component revisionList =
            ->Belt.List.sort((a, b) =>
                toSeconds(b.updated_at) - toSeconds(a.updated_at)
              )
-           ->Belt.List.map(rev => <Revision.main snoozeItem rev />),
+           ->Belt.List.map(rev => <revision snoozeItem rev />),
          (),
        )}
     </view>;

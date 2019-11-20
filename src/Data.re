@@ -380,6 +380,7 @@ module PR = {
 module Check = {
   let isPending = (check: PR.check) => check.status != "completed";
   let isFailed = (check: PR.check) => check.status == "completed" && (check.conclusion != Some("success") && check.conclusion != Some("neutral"));
+  let isSucceeded = (check: PR.check) => check.status == "completed" && check.conclusion == Some("success");
   let parse = (result) => {
     module F = Lets.Try;
     open RJson.Infix;
