@@ -1,7 +1,7 @@
 #include <fluid_shared.h>
 #include <CoreImage/CoreImage.h>
 
-CAMLprim value phabrador_homeDirectory() {
+CAMLprim value codeReviewChecker_homeDirectory() {
   CAMLparam0();
   // CAMLreturn(caml_copy_string([NSHomeDirectory() UTF8String]));
   
@@ -9,14 +9,14 @@ CAMLprim value phabrador_homeDirectory() {
   // CAMLreturn(caml_copy_string("/Users/jared"));
 }
 
-CAMLprim value phabrador_isDarkMode() {
+CAMLprim value codeReviewChecker_isDarkMode() {
   CAMLparam0();
   BOOL isDarkMode = [[[NSUserDefaults standardUserDefaults] stringForKey:@"AppleInterfaceStyle"]
                      isEqualToString:@"Dark"];
   CAMLreturn(Val_bool(isDarkMode));
 }
 
-void phabrador_setTimeout(value callback, value milis_v) {
+void codeReviewChecker_setTimeout(value callback, value milis_v) {
   CAMLparam2(callback, milis_v);
   int64_t milis = Int_val(milis_v);
   int cbid = Int_val(callback);
@@ -28,7 +28,7 @@ void phabrador_setTimeout(value callback, value milis_v) {
     static value * closure_f = NULL;
     if (closure_f == NULL) {
         /* First time around, look up by name */
-        closure_f = caml_named_value("phabrador_timeout_cb");
+        closure_f = caml_named_value("codeReviewChecker_timeout_cb");
     }
     caml_callback2(*closure_f, Val_int(cbid), Val_unit);
 
@@ -37,7 +37,7 @@ void phabrador_setTimeout(value callback, value milis_v) {
   CAMLreturn0;
 }
 
-void phabrador_openUrl(value url) {
+void codeReviewChecker_openUrl(value url) {
   CAMLparam1(url);
   [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString: NSString_val(url)]];
   CAMLreturn0;
@@ -51,14 +51,14 @@ void qmenu_toggleMenuItem(value item_v, value isOn) {
   CAMLreturn0;
 }
 
-void phabrador_showMenu(value menu_v) {
+void codeReviewChecker_showMenu(value menu_v) {
   CAMLparam1(menu_v);
   NSMenu* menu = (NSMenu*)Unwrap(menu_v);
   [NSMenu popUpContextMenu:menu withEvent:[NSApp currentEvent] forView:nil];
   CAMLreturn0;
 }
 
-void phabrador_fetch(value url, value callback, value headers) {
+void codeReviewChecker_fetch(value url, value callback, value headers) {
   CAMLparam1(url);
   int callbackId = Int_val(callback);
   NSMutableURLRequest* request = [NSMutableURLRequest requestWithURL:[[NSURL alloc] initWithString:NSString_val(url)]];
@@ -82,7 +82,7 @@ void phabrador_fetch(value url, value callback, value headers) {
         static value * closure_f = NULL;
         if (closure_f == NULL) {
             /* First time around, look up by name */
-            closure_f = caml_named_value("phabrador_fetch_cb");
+            closure_f = caml_named_value("codeReviewChecker_fetch_cb");
         }
 
         tuple_v = caml_alloc_tuple(2);

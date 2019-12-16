@@ -4,7 +4,7 @@ open Data;
 open Fluid.Native;
 
 let str = Fluid.string;
-external openUrl: string => unit = "phabrador_openUrl";
+external openUrl: string => unit = "codeReviewChecker_openUrl";
 
 
 let%component checks = (~checks: list(Data.PR.check), ~labels: list(Data.PR.label), hooks) => {

@@ -1,8 +1,8 @@
 
 (library
-  (name Phabrador)
+  (name CodeReviewChecker)
   (libraries str flex belt RexJson fluid.Files fluid.MacOS odate)
-  (c_names Phabrador)
+  (c_names CodeReviewChecker)
   (flags :standard -open RexJson -w -A)
     (c_flags -x objective-c -g)
   (preprocess (pps belt.ppx fluid.ppx let-anything-esy.ppx)))

@@ -9,20 +9,20 @@ let str = Fluid.string;
 
 let gray = n => {r: n, g: n, b: n, a: 1.};
 
-external isDarkMode: unit => bool = "phabrador_isDarkMode";
-external openUrl: string => unit = "phabrador_openUrl";
+external isDarkMode: unit => bool = "codeReviewChecker_isDarkMode";
+external openUrl: string => unit = "codeReviewChecker_openUrl";
 
 let revision = Revisionn.revision;
 
 module TimeoutTracker =
   FluidMac.Tracker({
     type arg = unit;
-    let name = "phabrador_timeout_cb";
+    let name = "codeReviewChecker_timeout_cb";
     let once = true;
     type res = unit;
   });
 external setTimeout: (TimeoutTracker.callbackId, int) => unit =
-  "phabrador_setTimeout";
+  "codeReviewChecker_setTimeout";
 let setTimeout = (fn, time) => setTimeout(TimeoutTracker.track(fn), time);
 
 let toSeconds = Data.toSeconds;
@@ -35,7 +35,7 @@ let%component revisionList =
     let darkMode = isDarkMode();
     <view layout={Layout.style(~alignItems=AlignStretch, ())}>
       <view
-        backgroundColor={darkMode ? gray(0.1) : gray(0.9)}
+        backgroundColor={darkMode ? gray(0.3) : gray(0.9)}
         layout={Layout.style(~paddingHorizontal=8., ~paddingVertical=4., ())}>
         {str(title)}
       </view>
@@ -305,7 +305,7 @@ let%component main = (~assetsDir, ~refresh, ~setTitle, hooks) => {
         title="Open web"
       />
     </view>;
-    //  <Phabrador.main
+    //  <CodeReviewChecker.main
     //     assetsDir
     //     refresh
     //  />

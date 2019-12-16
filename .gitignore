@@ -1,7 +1,7 @@
 _esy
+.DS_Store
 *.install
 node_modules
 .merlin
 .cache
-_build
 app/

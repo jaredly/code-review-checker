@@ -9,7 +9,7 @@ type t = {
   checkForUpdates: bool,
 };
 
-external homeDirectory: unit => string = "phabrador_homeDirectory";
+external homeDirectory: unit => string = "codeReviewChecker_homeDirectory";
 let default = {checkForUpdates: true, snoozed: Belt.Map.String.empty};
 let ofJson = json => {
   open Json.Infix;
@@ -37,7 +37,7 @@ let save = (config, path) => Files.writeFileExn(path, Json.stringify(toJson(conf
 
 let (/+) = Filename.concat;
 
-let configPath = homeDirectory() /+ "Library" /+ "Preferences" /+ "com.jaredforsyth.phabrador.json";
+let configPath = homeDirectory() /+ "Library" /+ "Preferences" /+ "com.jaredforsyth.codeReviewChecker.json";
 
 print_endline("Saving config to " ++ configPath);
 

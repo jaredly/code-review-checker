@@ -1,12 +1,12 @@
 module FetchTracker =
   FluidMac.Tracker({
     type arg = (string, int);
-    let name = "phabrador_fetch_cb";
+    let name = "codeReviewChecker_fetch_cb";
     let once = true;
     type res = unit;
   });
 
-external homeDirectory: unit => string = "phabrador_homeDirectory";
+external homeDirectory: unit => string = "codeReviewChecker_homeDirectory";
 external fetch:
   (
     ~url: string,
@@ -14,7 +14,7 @@ external fetch:
     ~headers: array((string, string))
   ) =>
   unit =
-  "phabrador_fetch";
+  "codeReviewChecker_fetch";
 let fetch = (~url, ~headers=[||], callback) =>
   fetch(~url, ~callback=FetchTracker.track(callback), ~headers);
 let kwargs = items =>
@@ -108,7 +108,7 @@ module Phabricator = {
     };
   };
 
-  let (hostname, token, base) = getAuth();
+  let (hostname, token, base) = ("","","");//getAuth();
   let diffUrl = id => base ++ "/D" ++ string_of_int(id);
   // Api.base ++ "/D" ++ string_of_int(rev.id)
 

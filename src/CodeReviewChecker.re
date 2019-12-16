@@ -10,10 +10,10 @@ let str = Fluid.string;
 
 let gray = n => {r: n, g: n, b: n, a: 1.};
 
-external openUrl: string => unit = "phabrador_openUrl";
+external openUrl: string => unit = "codeReviewChecker_openUrl";
 
-module TimeoutTracker = FluidMac.Tracker({type arg = unit; let name = "phabrador_timeout_cb"; let once = true; type res = unit});
-external setTimeout: (TimeoutTracker.callbackId, int) => unit = "phabrador_setTimeout";
+module TimeoutTracker = FluidMac.Tracker({type arg = unit; let name = "codeReviewChecker_timeout_cb"; let once = true; type res = unit});
+external setTimeout: (TimeoutTracker.callbackId, int) => unit = "codeReviewChecker_setTimeout";
 let setTimeout = (fn, time) => setTimeout(TimeoutTracker.track(fn), time);
 
 // module ImageCache = Fluid.Cache({
@@ -344,7 +344,7 @@ let run = assetsDir => {
     ~isAccessory=true,
     () => {
     Fluid.App.setupAppMenu(
-      ~title="Phabrador",
+      ~title="CodeReviewChecker",
       ~appItems=[||],
       ~menus=[| Fluid.App.defaultEditMenu() |]
     );
@@ -356,7 +356,7 @@ let run = assetsDir => {
     let refresh = ref(() => ());
 
     let win = Fluid.launchWindow(
-      ~title="Phabrador",
+      ~title="CodeReviewChecker",
       ~floating=true,
       ~hidden=true,
       ~onResize=({width, height}, window) => {

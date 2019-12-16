@@ -1,17 +1,17 @@
 
 (executable
-  (public_name PhabradorDev)
-  (libraries Phabrador)
-  (modules PhabradorDev)
+  (public_name CodeReviewCheckerDev)
+  (libraries CodeReviewChecker)
+  (modules CodeReviewCheckerDev)
   (modes native byte object shared_object)
   (flags -g)
   ; (link_flags -cclib -framework -cclib Cocoa -cclib -framework -cclib Carbon -cclib -framework -cclib CoreImage)
   (preprocess (pps belt.ppx fluid.ppx)))
 
 (executable
-  (public_name PhabradorProd)
-  (modules PhabradorProd)
-  (libraries Phabrador)
+  (public_name CodeReviewCheckerProd)
+  (modules CodeReviewCheckerProd)
+  (libraries CodeReviewChecker)
   ; (link_flags -cclib -framework -cclib Cocoa -cclib -framework -cclib Carbon -cclib -framework -cclib CoreImage)
   (preprocess (pps belt.ppx fluid.ppx)))
 

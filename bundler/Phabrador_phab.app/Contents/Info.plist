@@ -3,13 +3,13 @@
 <plist version="1.0">
 <dict>
   <key>CFBundleGetInfoString</key>
-  <string>Phabrador</string>
+  <string>CodeReviewChecker</string>
   <key>CFBundleExecutable</key>
-  <string>Phabrador</string>
+  <string>CodeReviewChecker</string>
   <key>CFBundleIdentifier</key>
   <string>com.example.www</string>
   <key>CFBundleName</key>
-  <string>Phabrador</string>
+  <string>CodeReviewChecker</string>
   <key>CFBundleIconFile</key>
   <string>icon.icns</string>
   <key>CFBundleShortVersionString</key>
