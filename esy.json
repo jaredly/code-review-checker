@@ -1,31 +1,24 @@
 {
-  "name": "phabrador",
+  "name": "code-review-checker",
   "version": "1.0",
   "esy": {
     "build": "dune build -p #{self.name}",
-    "buildsInSource": "_build",
     "sandboxEnv": {
       // "FLUID_DEBUG": "true"
     }
   },
   "scripts": {
-    "start": "esy x PhabradorDev",
+    "start": "esy x CodeReviewCheckerDev",
     "pkg": "sh -c 'cd bundler && ./bundle.sh'"
   },
   "dependencies": {
-    "ocaml": ">=4.7.0",
-    "@opam/dune": "*",
+    "ocaml": "4.8.0",
+    "@opam/dune": "1.9.0",
     "@opam/reason": "*",
-    "@opam/odate": "*",
+    "@opam/odate": "jaredly/odate",
     "let-anything-esy": "*",
     "fluid": "jaredly/fluid",
     "belt": "jaredly/belt",
     "RexJson": "jaredly/rex-json#esy"
-  },
-  "resolutions": {
-    "fluid": "link:../../explorations/fluid/esy.json",
-    "@opam/odate": "link:../../fork/odate/package.json",
-    "RexJson": "link:../../libs/rex-json/esy.json",
-    "let-anything-esy": "link:../../tools/let-anything/publish-esy/package.json"
   }
 }

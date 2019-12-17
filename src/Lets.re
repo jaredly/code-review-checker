@@ -22,8 +22,24 @@ module Async = {
   module Result = {
     type single('a) = t('a);
     type t('a, 'b) = (Belt.Result.t('a, 'b) => unit) => unit;
+    let wrap: Belt.Result.t('a, 'b) => t('a, 'b) = (data, fn) => fn(data);
     let resolve: 'a => t('a, 'b) = (data, fn) => fn(Belt.Result.Ok(data));
     let reject: 'b => t('a, 'b) = (data, fn) => fn(Belt.Result.Error(data));
+    let all = (items, continuation) => {
+      all(items, results => {
+        let result = results->Belt.List.reduce(Ok([]), (coll, item) => switch coll {
+          | Error(e) => Error(e)
+          | Ok(v) => switch item {
+            | Error(e) => Error(e)
+            | Ok(i) => Ok([i, ...v])
+          }
+        });
+        continuation(switch result {
+          | Error(e) => Error(e)
+          | Ok(v) => Ok(List.rev(v))
+        })
+      })
+    }
     let let_: (t('a, 'b), 'a => t('c, 'b)) => t('c, 'b) =
       (promise, continuation, fin) =>
         promise(v =>
@@ -88,6 +104,22 @@ module Try = {
       failwith("Force unwrapped an Error()");
     | Ok(v) => v
     };
+  let ok = t => {
+    switch t {
+      | Ok(a) => Some(a)
+      | Error(e) => {
+        // print_endline(e);
+        None
+      }
+    }
+  }
+  module Force = {
+    let force = t => switch t {
+      | Ok(t) => t
+      | Error(e) => failwith("Force unwrapped an Error(): " ++ e)
+    };
+    let let_: (result('a, string), 'a => 'b) => 'b = (a, b) => b(force(a));
+  }
 };
 
 module TryWrap = {

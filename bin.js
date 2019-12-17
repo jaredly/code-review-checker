@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-const {fetchOne, fetchAll, fetchMine, fetchRevs} = require('./phabrador')
-const {diffForCurrentBranch, isCurrentBranchRemoteTracking} = require('./phabrador/git')
+const {fetchOne, fetchAll, fetchMine, fetchRevs} = require('./codeReviewChecker')
+const {diffForCurrentBranch, isCurrentBranchRemoteTracking} = require('./codeReviewChecker/git')
 const {open: openurl} = require('openurl')
 const chalk = require('chalk')
 // console.log(process.argv)
@@ -17,7 +17,7 @@ for (let i=3; i<process.argv.length; i++) {
 }
 
 const showHelp = () => console.log(`\
-Phabrador Retriever: Fetchin your diffs!
+CodeReviewChecker Retriever: Fetchin your diffs!
 
 Usage:
 - 'phab' - if in a diff branch show detail on the current diff. otherwise show all
@@ -33,7 +33,7 @@ Options:
 `)
 
 var Spinner = require('cli-spinner').Spinner;
-const display = require('./phabrador/display')
+const display = require('./codeReviewChecker/display')
 
 const spin = fn => {
   var spinner = new Spinner('contacting phabricator.. %s');

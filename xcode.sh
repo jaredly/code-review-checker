@@ -1,2 +1,2 @@
-esy dune build bin/PhabradorDev.exe.o;
-cp _build/default/bin/PhabradorDev.exe.o ./app
+esy dune build bin/CodeReviewCheckerDev.exe.o;
+cp _build/default/bin/CodeReviewCheckerDev.exe.o ./app
