@@ -35,7 +35,7 @@ let%component revisionList =
     let darkMode = isDarkMode();
     <view layout={Layout.style(~alignItems=AlignStretch, ())}>
       <view
-        backgroundColor={darkMode ? gray(0.3) : gray(0.9)}
+        backgroundColor={darkMode ? gray(0.15) : gray(0.9)}
         layout={Layout.style(~paddingHorizontal=8., ~paddingVertical=4., ())}>
         {str(title)}
       </view>

@@ -16,16 +16,6 @@ module TimeoutTracker = FluidMac.Tracker({type arg = unit; let name = "codeRevie
 external setTimeout: (TimeoutTracker.callbackId, int) => unit = "codeReviewChecker_setTimeout";
 let setTimeout = (fn, time) => setTimeout(TimeoutTracker.track(fn), time);
 
-// module ImageCache = Fluid.Cache({
-//   type arg = string;
-//   type result = Fluid.NativeInterface.image;
-//   let reason = Fluid.noReason;
-//   let fetch = (src, onDone) => {
-//     Fluid.NativeInterface.preloadImage(~src, ~onDone)
-//   }
-// });
-
-
 let timePrinter = ODate.Unix.To.generate_printer("%I:%M%P")->Lets.Opt.force;
 let datePrinter = ODate.Unix.To.generate_printer("%b %E, %Y")->Lets.Opt.force;
 
